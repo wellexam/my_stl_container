@@ -1,3 +1,5 @@
+#include <initializer_list>
+
 template <typename T>
 class __list_node {
     using void_pointer = __list_node *;
@@ -61,6 +63,9 @@ private:
 public:
     my_list();
     my_list(size_type count, const value_type &value);
+    my_list(const my_list &other);
+    my_list(my_list &&other);
+    my_list(std::initializer_list<T> init);
     ~my_list();
 
     size_t size(){return list_size};
@@ -82,16 +87,16 @@ void my_list<T>::empty_initialize() {
 }
 
 template <class T>
-void my_list<T>::insert(iterator position, my_list<T>::size_type n, const T& x) {
-  for ( ; n > 0; --n)
-    insert(position, x);
+void my_list<T>::insert(iterator position, my_list<T>::size_type n, const T &x) {
+    for (; n > 0; --n)
+        insert(position, x);
 }
 
-template <class T, class Alloc> template <class InputIterator>
-void list<T, Alloc>::insert(iterator position,
-                            InputIterator first, InputIterator last) {
-  for ( ; first != last; ++first)
-    insert(position, *first);
+template <class T, class Alloc>
+template <class InputIterator>
+void list<T, Alloc>::insert(iterator position, InputIterator first, InputIterator last) {
+    for (; first != last; ++first)
+        insert(position, *first);
 }
 
 template <typename T>
