@@ -1,114 +1,70 @@
 #include <initializer_list>
 
 template <typename T>
-class __list_node {
-    using void_pointer = __list_node *;
-    // typedef __list_node* void_pointer;
-    void_pointer next; // 为void*类型，其实可以是__list_node<T>*
+class list_node {
+    using void_pointer = list_node *;
+    void_pointer next;
     void_pointer prev;
-    T data; //存储数据
-};
-
-template <typename T, typename Ref, typename Ptr>
-class _iterator {
-    using link_type = __list_node<T> *;
-    link_type node; // 这个迭代器指向的节点
-    // 迭代器构造函数
-    __list_iterator(link_type x) : node(x) {}
-    __list_iterator() {}
-    __list_iterator(const iterator &x) : node(x.node) {}
-    // 迭代器必要的行为实现
-    bool operator==(const self &x) const { return node == x.node; }
-    bool operator!=(const self &x) const { return node != x.node; }
-    //迭起器取值，取得是节点的值
-    reference operator*() const { return (*node).data; }
-#ifndef __SGI_STL_NO_ARROW_OPERATOR
-    //成员调用操作符
-    pointer operator->() const { return &(operator*()); }
-#endif /* __SGI_STL_NO_ARROW_OPERATOR */
-    // 先加１，再返回，类似与++i
-    self &operator++() {
-        node = (link_type)((*node).next);
-        return *this;
-    }
-    //先加１，然后返回加１前的数据，类似与i++
-    self operator++(int) {
-        self tmp = *this;
-        ++*this;
-        return tmp;
-    }
-    // 先减１，再返回，类似于--i
-    self &operator--() {
-        node = (link_type)((*node).prev);
-        return *this;
-    }
-    //先减１，再返回减１前的数据，类似于i--
-    self operator--(int) {
-        self tmp = *this;
-        --*this;
-        return tmp;
-    }
+    T data;
 };
 
 template <typename T>
-class my_list {
+class list {
     using size_type = size_t;
     using value_type = T;
+    using reference = value_type &;
+    using const_reference = const value_type &;
 
 private:
-    __list_node<value_type> node;
+    list_node<value_type> dummy_node;
     size_type list_size;
     void empty_initialize();
 
 public:
-    my_list();
-    my_list(size_type count, const value_type &value);
-    my_list(const my_list &other);
-    my_list(my_list &&other);
-    my_list(std::initializer_list<T> init);
-    ~my_list();
+    list();                                         //默认构造函数。构造拥有默认构造的分配器的空容器
+    list(size_type count, const value_type &value); //构造拥有 count 个有值 value 的元素的容器
+    explicit list(size_type count);                 //构造拥有个 count 默认插入的 T 实例的容器。不进行复制
+    list(const list &other);                        //复制构造函数。构造拥有 other 内容的容器
+    list(list &&other);                             //移动构造函数。用移动语义构造拥有 other 内容的容器
+    list(std::initializer_list<T> init);            //构造拥有 initializer_list init 内容的容器
+    ~list();                                        //销毁 list 。调用元素的析构函数，然后解分配所用的存储。注意，若元素是指针，则不销毁所指向的对象
 
     size_t size(){return list_size};
-    void my_list<T>::insert(my_list<T>::iterator position, my_list<T>::size_type n, const T &x);
+    // void list<T>::insert(list<T>::iterator position, list<T>::size_type n, const T &x);
 };
 
 template <typename T>
-my_list<T>::my_list(){empty_initialize()};
+list<T>::list(){empty_initialize()};
 
 template <typename T>
-my_list<T>::my_list(size_type count, const value_type &value) {}
+list<T>::list(size_type count, const value_type &value) {}
 
 template <typename T>
-void my_list<T>::empty_initialize() {
-    node = new __list_node<value_type>; //创建一个节点，就是调用配置器分配内存
-    node->next = node;                  //傀儡节点的前后都指向自己，形成一个环
-    node->prev = node;
+void list<T>::empty_initialize() {
+    dummy_node = new list_node<value_type>; //创建一个节点，就是调用配置器分配内存
+    node->next = dummy_node;                //傀儡节点的前后都指向自己，形成一个环
+    node->prev = dummy_node;
     list_size = 0;
 }
 
-template <class T>
-void my_list<T>::insert(iterator position, my_list<T>::size_type n, const T &x) {
-    for (; n > 0; --n)
-        insert(position, x);
-}
+template <typename T, typename Ref, typename Ptr>
+class list_iterator {
+    using self = list_iterator<T, Ref, Ptr>;
+    using iterator = list_iterator<T, T &, T *>;
+    using const_iterator = list_iterator<T, const T &, const T *>;
+    using value_type = T;
+    using pointer = Ptr;
+    using reference = Ref;
+    using node = list_node<value_type>;
 
-template <class T, class Alloc>
-template <class InputIterator>
-void list<T, Alloc>::insert(iterator position, InputIterator first, InputIterator last) {
-    for (; first != last; ++first)
-        insert(position, *first);
-}
+private:
+    pointer current_node;
 
-template <typename T>
-void fill_initialize(size_type n, const T &value) {
-    empty_initialize();
-    __STL_TRY { insert(begin(), n, value); }
-    __STL_UNWIND(clear(); put_node(node));
-}
+public:
+    list_iterator(node *_current_node) : current_node(_current_node) {}
+    list_iterator() : current_node(nullptr) {}
+    list_iterator(const iterator &other) : current_node(other.current_node) {}
 
-template <typename T>
-void range_initialize(InputIterator first, InputIterator last) {
-    empty_initialize();
-    __STL_TRY { insert(begin(), first, last); }
-    __STL_UNWIND(clear(); put_node(node));
-}
+    bool operator==(const iterator &other) const { return this->current_node == other.current_node }
+    bool operator!=(const iterator &other) const { return !operator==(this, other) }
+};
