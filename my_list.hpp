@@ -10,10 +10,8 @@ public:
     pointer prev;
     T data;
 
-    list_node(const T &_data) :
-        data(_data){};
-    list_node(const T &_data, pointer _next, pointer _prev) :
-        data(_data), next(_next), prev(_prev){};
+    list_node(const T &_data) : data(_data){};
+    list_node(const T &_data, pointer _next, pointer _prev) : data(_data), next(_next), prev(_prev){};
 };
 
 template <typename T, typename Ref, typename Ptr>
@@ -27,31 +25,20 @@ class list_iterator {
     using node = list_node<value_type>;
 
 private:
-    pointer current_node;
+    node *current_node;
 
 public:
-    list_iterator(node *_current_node) :
-        current_node(_current_node) {
-    }
-    list_iterator() :
-        current_node(nullptr) {
-    }
-    list_iterator(const iterator &other) :
-        current_node(other.current_node) {
-    }
+    list_iterator(node *_current_node) : current_node(_current_node) {}
+    list_iterator() : current_node(nullptr) {}
+    list_iterator(const iterator &other) : current_node(other.current_node) {}
 
-    bool operator==(const iterator &other) const {
-        return this->current_node == other.current_node;
-    }
-    bool operator!=(const iterator &other) const {
-        return !operator==(this, other);
-    }
-    reference operator*() const {
-        return ((node *)current_node)->data;
-    }
-    pointer operator->() const {
-        return &(operator*());
-    }
+    bool operator==(const iterator &other) const { return this->current_node == other.current_node; }
+    bool operator!=(const iterator &other) const { return !operator==(this, other); }
+    reference operator*() const { return ((node *)current_node)->data; }
+    pointer operator->() const { return &(operator*()); }
+
+    node *get_ptr() { return current_node; }
+    node *&get_ref_to_ptr() { return current_node; }
 
     self &operator++() {
         this->current_node = this->current_node->next;
@@ -93,6 +80,10 @@ private:
     size_type list_size; //链表元素数量
 
 public:
+    //友元类
+    friend class iterator;
+    friend class const_iterator;
+
     //构造函数
     list();                                         // 默认构造函数。构造拥有默认构造的分配器的空容器
     list(size_type count, const value_type &value); // 构造拥有 count 个有值 value 的元素的容器
@@ -102,8 +93,8 @@ public:
     list(std::initializer_list<T> init); // 构造拥有 initializer_list init 内容的容器
     ~list();                             // 销毁 list 。调用元素的析构函数，然后解分配所用的存储。注意，若元素是指针，则不销毁所指向的对象
 
-    list &operator=(const list &other);              // 复制赋值运算符。以 other 的副本替换内容。
-    list &operator=(list &&other);                   // 移动赋值运算符。用移动语义以 other 的内容替换内容（即从 other 移动 other 中的数据到此容器中）。之后 other 在合法但未指定的状态。
+    list &operator=(const list &other); // 复制赋值运算符。以 other 的副本替换内容。
+    list &operator=(list &&other); // 移动赋值运算符。用移动语义以 other 的内容替换内容（即从 other 移动 other 中的数据到此容器中）。之后 other 在合法但未指定的状态。
     list &operator=(std::initializer_list<T> ilist); // 以 initializer_list ilist 所标识者替换内容。
 
     void assign(size_type count, const T &value); // 以 count 份 value 的副本替换内容。
@@ -127,19 +118,17 @@ public:
     reverse_iterator rbegin() noexcept;              //返回指向逆向 list 首元素的逆向迭代器。它对应非逆向 list 的末元素。
     const_reverse_iterator rbegin() const noexcept;  //返回指向逆向 list 首元素的逆向迭代器。它对应非逆向 list 的末元素。
     const_reverse_iterator crbegin() const noexcept; //返回指向逆向 list 首元素的逆向迭代器。它对应非逆向 list 的末元素。
-    reverse_iterator rend() noexcept;                //返回指向逆向 list 末元素后一元素的逆向迭代器。它对应非逆向 list 首元素的前一元素。此元素表现为占位符，试图访问它导致未定义行为。
-    const_reverse_iterator rend() const noexcept;    //返回指向逆向 list 末元素后一元素的逆向迭代器。它对应非逆向 list 首元素的前一元素。此元素表现为占位符，试图访问它导致未定义行为。
-    const_reverse_iterator crend() const noexcept;   //返回指向逆向 list 末元素后一元素的逆向迭代器。它对应非逆向 list 首元素的前一元素。此元素表现为占位符，试图访问它导致未定义行为。
+    reverse_iterator rend() noexcept; //返回指向逆向 list 末元素后一元素的逆向迭代器。它对应非逆向 list 首元素的前一元素。此元素表现为占位符，试图访问它导致未定义行为。
+    const_reverse_iterator rend() const noexcept; //返回指向逆向 list 末元素后一元素的逆向迭代器。它对应非逆向 list 首元素的前一元素。此元素表现为占位符，试图访问它导致未定义行为。
+    const_reverse_iterator crend() const noexcept; //返回指向逆向 list 末元素后一元素的逆向迭代器。它对应非逆向 list 首元素的前一元素。此元素表现为占位符，试图访问它导致未定义行为。
 
     //容量
-    bool empty() const noexcept; //检查容器是否无元素，即是否 begin() == end() 。
-    size_type size() const noexcept {
-        return list_size;
-    };                                   //返回容器中的元素数，即 std::distance(begin(), end())。
-    size_type max_size() const noexcept; //返回根据系统或库实现限制的容器可保有的元素最大数量，即对于最大容器的 std::distance(begin(), end()) 。
+    bool empty() const noexcept;                           //检查容器是否无元素，即是否 begin() == end() 。
+    size_type size() const noexcept { return list_size; }; //返回容器中的元素数，即 std::distance(begin(), end())。
+    size_type max_size() const noexcept;                   //返回根据系统或库实现限制的容器可保有的元素最大数量，即对于最大容器的 std::distance(begin(), end()) 。
 
     //修改器
-    void clear() noexcept;                                                //从容器擦除所有元素。此调用后 size() 返回零。非法化任何指代所含元素的引用、指针或迭代器。任何尾后迭代器保持合法。
+    void clear() noexcept; //从容器擦除所有元素。此调用后 size() 返回零。非法化任何指代所含元素的引用、指针或迭代器。任何尾后迭代器保持合法。
     iterator insert(const_iterator pos, const T &value);                  //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, T &&value);                       //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, size_type count, const T &value); //插入元素到容器中的指定位置。
@@ -183,8 +172,8 @@ public:
     void merge(list &&other, Compare comp); //归并二个已排序链表为一个。链表应以升序排序。
 
     //从一个 list 转移元素给另一个。不复制或移动元素，仅重指向链表结点的内部指针。
-    void splice(const_iterator pos, list &other);                     //从 other 转移所有元素到 *this 中。元素被插入到 pos 所指向的元素之前。操作后容器 other 变为空。若 other 与 *this 指代同一对象则行为未定义。
-    void splice(const_iterator pos, list &&other);                    //从 other 转移所有元素到 *this 中。元素被插入到 pos 所指向的元素之前。操作后容器 other 变为空。若 other 与 *this 指代同一对象则行为未定义。
+    void splice(const_iterator pos, list &other); //从 other 转移所有元素到 *this 中。元素被插入到 pos 所指向的元素之前。操作后容器 other 变为空。若 other 与 *this 指代同一对象则行为未定义。
+    void splice(const_iterator pos, list &&other); //从 other 转移所有元素到 *this 中。元素被插入到 pos 所指向的元素之前。操作后容器 other 变为空。若 other 与 *this 指代同一对象则行为未定义。
     void splice(const_iterator pos, list &other, const_iterator it);  // 从 other 转移 it 所指向的元素到 *this 。元素被插入到 pos 所指向的元素之前。
     void splice(const_iterator pos, list &&other, const_iterator it); // 从 other 转移 it 所指向的元素到 *this 。元素被插入到 pos 所指向的元素之前。
     void splice(const_iterator pos, list &other, const_iterator first,
@@ -230,4 +219,21 @@ list<T>::list(size_type count, const value_type &value) {
 template <typename T>
 list<T>::list(const list &other) {
     auto iter = other.cbegin();
+    dummy_node = new list_node<value_type>;
+    node *temp_pointer = dummy_node;
+    while (iter != other.cend()) {
+        temp_pointer->next = new list_node<value_type>(*iter, nullptr, temp_pointer);
+        ++iter;
+    }
+    temp_pointer->next = dummy_node;
+    this->list_size = other.list_size;
+}
+
+template <typename T>
+list<T>::list(list &&other) {
+    this->dummy_node = other.dummy_node;
+    this->list_size = other.list_size;
+    other.dummy_node = new list_node<value_type>;
+    other.dummy_node->next = other.dummy_node;
+    other.dummy_node->prev = other.dummy_node;
 }
