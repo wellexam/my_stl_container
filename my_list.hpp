@@ -111,6 +111,16 @@ public:
     void merge(list &other, Compare comp);  //归并二个已排序链表为一个。链表应以升序排序。
     template <class Compare>                //
     void merge(list &&other, Compare comp); //归并二个已排序链表为一个。链表应以升序排序。
+
+    //从一个 list 转移元素给另一个。不复制或移动元素，仅重指向链表结点的内部指针。
+    void splice(const_iterator pos, list &other); //从 other 转移所有元素到 *this 中。元素被插入到 pos 所指向的元素之前。操作后容器 other 变为空。若 other 与 *this 指代同一对象则行为未定义。
+    void splice(const_iterator pos, list &&other); //从 other 转移所有元素到 *this 中。元素被插入到 pos 所指向的元素之前。操作后容器 other 变为空。若 other 与 *this 指代同一对象则行为未定义。
+    void splice(const_iterator pos, list &other, const_iterator it);  // 从 other 转移 it 所指向的元素到 *this 。元素被插入到 pos 所指向的元素之前。
+    void splice(const_iterator pos, list &&other, const_iterator it); // 从 other 转移 it 所指向的元素到 *this 。元素被插入到 pos 所指向的元素之前。
+    void splice(const_iterator pos, list &other, const_iterator first,
+                const_iterator last); //从 other 转移范围 [first, last) 中的元素到 *this 。元素被插入到 pos 所指向的元素之前。若 pos 是范围 [first,last) 中的迭代器则行为未定义。
+    void splice(const_iterator pos, list &&other, const_iterator first,
+                const_iterator last); //从 other 转移范围 [first, last) 中的元素到 *this 。元素被插入到 pos 所指向的元素之前。若 pos 是范围 [first,last) 中的迭代器则行为未定义。
 };
 
 template <typename T>
