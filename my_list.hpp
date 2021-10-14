@@ -3,15 +3,13 @@
 
 template <typename T>
 class list_node {
-    using pointer = list_node *;
-
 public:
-    pointer next;
-    pointer prev;
+    list_node *next;
+    list_node *prev;
     T data;
 
     list_node(const T &_data) : data(_data){};
-    list_node(const T &_data, pointer _next, pointer _prev) : data(_data), next(_next), prev(_prev){};
+    list_node(const T &_data, list_node *_next, list_node *_prev) : data(_data), next(_next), prev(_prev){};
 };
 
 template <typename T, typename Ref, typename Ptr>
@@ -214,6 +212,7 @@ list<T>::list(size_type count, const value_type &value) {
         temp_pointer = temp_pointer->next;
     }
     temp_pointer->next = dummy_node;
+    dummy_node->prev = temp_pointer;
 }
 
 template <typename T>
@@ -223,9 +222,11 @@ list<T>::list(const list &other) {
     node *temp_pointer = dummy_node;
     while (iter != other.cend()) {
         temp_pointer->next = new list_node<value_type>(*iter, nullptr, temp_pointer);
+        temp_pointer = temp_pointer->next;
         ++iter;
     }
     temp_pointer->next = dummy_node;
+    dummy_node->prev = temp_pointer;
     this->list_size = other.list_size;
 }
 
@@ -236,4 +237,149 @@ list<T>::list(list &&other) {
     other.dummy_node = new list_node<value_type>;
     other.dummy_node->next = other.dummy_node;
     other.dummy_node->prev = other.dummy_node;
+    other.list_size = 0;
+}
+
+template <typename T>
+void list<T>::clear() noexcept {
+    auto iter = this->begin();
+    while (iter != this->end()) {
+        auto temp = iter->get_ptr();
+        ++iter;
+        delete temp;
+    }
+    dummy_node->next = dummy_node;
+    dummy_node->prev = dummy_node;
+    this->list_size = 0;
+}
+
+template <typename T>
+list<T>::~list() {
+    this->clear();
+    delete this->dummy_node;
+}
+
+template <typename T>
+list<T> &list<T>::operator=(const list &other) {
+    if (this == &other) {
+        return *this;
+    }
+    this->clear();
+    auto const_iter = other.cbegin();
+    node *temp_pointer = dummy_node;
+    while (const_iter != other.cend()) {
+        temp_pointer->next = new list_node<value_type>(*const_iter, nullptr, temp_pointer);
+        temp_pointer = temp_pointer->next;
+        ++const_iter;
+    }
+    temp_pointer->next = dummy_node;
+    dummy_node->prev = temp_pointer;
+    this->list_size = other.list_size;
+    return *this;
+}
+
+template <typename T>
+list<T> &list<T>::operator=(list &&other) {
+    this->clear();
+    delete this->dummy_node;
+    this->dummy_node = other.dummy_node;
+    this->list_size = other.list_size;
+    other.dummy_node = new list_node<value_type>;
+    other.dummy_node->next = other.dummy_node;
+    other.dummy_node->prev = other.dummy_node;
+    other.list_size = 0;
+    return *this;
+}
+
+template <typename T>
+void list<T>::assign(size_type count, const T &value) {
+    this->clear();
+    list_size = count;
+    auto temp_pointer = dummy_node;
+    while (count--) {
+        temp_pointer->next = new list_node<value_type>(value, nullptr, temp_pointer);
+        temp_pointer = temp_pointer->next;
+    }
+    temp_pointer->next = dummy_node;
+    dummy_node->prev = temp_pointer;
+}
+
+template <typename T>
+T &list<T>::front() {
+    return *(this->begin());
+}
+
+template <typename T>
+const T &list<T>::front() const {
+    return *(this->cbegin());
+}
+
+template <typename T>
+T &list<T>::back() {
+    return *(--(this->end()));
+}
+
+template <typename T>
+const T &list<T>::back() const {
+    return *(--(this->cend()));
+}
+
+template <typename T>
+list<T>::iterator list<T>::begin() noexcept {
+    iterator temp(this->dummy_node->next);
+    return temp;
+}
+
+template <typename T>
+list<T>::const_iterator list<T>::begin() const noexcept {
+    const_iterator temp(this->dummy_node->next);
+    return temp;
+}
+
+template <typename T>
+list<T>::const_iterator list<T>::cbegin() const noexcept {
+    const_iterator temp(this->dummy_node->next);
+    return temp;
+}
+
+template <typename T>
+list<T>::iterator list<T>::end() noexcept {
+    iterator temp(this->dummy_node);
+    return temp;
+}
+
+template <typename T>
+list<T>::const_iterator list<T>::end() const noexcept {
+    const_iterator temp(this->dummy_node);
+    return temp;
+}
+
+template <typename T>
+list<T>::const_iterator list<T>::cend() const noexcept {
+    const_iterator temp(this->dummy_node);
+    return temp;
+}
+
+template <typename T>
+list<T>::reverse_iterator list<T>::rbegin() noexcept {
+    reverse_iterator temp(this->dummy_node);
+    return temp;
+}
+
+template <typename T>
+list<T>::const_reverse_iterator list<T>::rbegin() const noexcept {
+    const_reverse_iterator temp(this->dummy_node);
+    return temp;
+}
+
+template <typename T>
+list<T>::const_reverse_iterator list<T>::crbegin() const noexcept {
+    const_reverse_iterator temp(this->dummy_node);
+    return temp;
+}
+
+template <typename T>
+list<T>::reverse_iterator list<T>::rend() noexcept {
+    reverse_iterator temp(this->dummy_node->next);
+    return temp;
 }
