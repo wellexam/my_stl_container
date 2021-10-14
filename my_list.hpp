@@ -8,34 +8,37 @@ public:
     list_node *prev;
     T data;
 
-    list_node(const T &_data) : data(_data){};
+    list_node() : next(nullptr), prev(nullptr){};
+    explicit list_node(const T &_data) : data(_data){};
     list_node(const T &_data, list_node *_next, list_node *_prev) : data(_data), next(_next), prev(_prev){};
 };
 
 template <typename T, typename Ref, typename Ptr>
-class list_iterator {
+class list_iterator : public std::iterator<std::bidirectional_iterator_tag, T> {
     using self = list_iterator<T, Ref, Ptr>;
     using iterator = list_iterator<T, T &, T *>;
     using const_iterator = list_iterator<T, const T &, const T *>;
-    using pointer = Ptr;
-    using reference = Ref;
-    using value_type = T;
+    using value_type = typename std::iterator<std::bidirectional_iterator_tag, T>::value_type;
+    using pointer = typename std::iterator<std::bidirectional_iterator_tag, T>::pointer;
+    using reference = typename std::iterator<std::bidirectional_iterator_tag, T>::reference;
     using node = list_node<value_type>;
 
-private:
+protected:
     node *current_node;
 
 public:
-    list_iterator(node *_current_node) : current_node(_current_node) {}
+    explicit list_iterator(node *_current_node) : current_node(_current_node) {}
     list_iterator() : current_node(nullptr) {}
-    list_iterator(const iterator &other) : current_node(other.current_node) {}
+    list_iterator(const iterator &other) : current_node(other.get_ptr()) {}
 
     bool operator==(const iterator &other) const { return this->current_node == other.current_node; }
-    bool operator!=(const iterator &other) const { return !operator==(this, other); }
-    reference operator*() const { return ((node *)current_node)->data; }
-    pointer operator->() const { return &(operator*()); }
+    bool operator!=(const iterator &other) const { return !operator==(other); }
+    list_iterator &operator=(const iterator &other);
 
-    node *get_ptr() { return current_node; }
+    Ref operator*() const { return ((node *)current_node)->data; }
+    Ptr operator->() const { return &(operator*()); }
+
+    node *get_ptr() const { return current_node; }
     node *&get_ref_to_ptr() { return current_node; }
 
     self &operator++() {
@@ -61,6 +64,15 @@ public:
     }
 };
 
+template <typename T, typename Ref, typename Ptr>
+list_iterator<T, Ref, Ptr> &list_iterator<T, Ref, Ptr>::operator=(const list_iterator::iterator &other) {
+    if (current_node == other.current_node) {
+        return *this;
+    }
+    current_node = other.current_node;
+    return *this;
+}
+
 template <typename T>
 class list {
     using size_type = size_t;
@@ -79,20 +91,20 @@ private:
 
 public:
     //友元类
-    friend class iterator;
-    friend class const_iterator;
+    // friend class iterator;
+    // friend class const_iterator;
 
     //构造函数
     list();                                         // 默认构造函数。构造拥有默认构造的分配器的空容器
     list(size_type count, const value_type &value); // 构造拥有 count 个有值 value 的元素的容器
     // explicit list(size_type count);                 // 构造拥有个 count 默认插入的 T 实例的容器。不进行复制
     list(const list &other);             // 复制构造函数。构造拥有 other 内容的容器
-    list(list &&other);                  // 移动构造函数。用移动语义构造拥有 other 内容的容器
+    list(list &&other) noexcept;         // 移动构造函数。用移动语义构造拥有 other 内容的容器
     list(std::initializer_list<T> init); // 构造拥有 initializer_list init 内容的容器
     ~list();                             // 销毁 list 。调用元素的析构函数，然后解分配所用的存储。注意，若元素是指针，则不销毁所指向的对象
 
     list &operator=(const list &other); // 复制赋值运算符。以 other 的副本替换内容。
-    list &operator=(list &&other); // 移动赋值运算符。用移动语义以 other 的内容替换内容（即从 other 移动 other 中的数据到此容器中）。之后 other 在合法但未指定的状态。
+    list &operator=(list &&other) noexcept; // 移动赋值运算符。用移动语义以 other 的内容替换内容（即从 other 移动 other 中的数据到此容器中）。之后 other 在合法但未指定的状态。
     list &operator=(std::initializer_list<T> ilist); // 以 initializer_list ilist 所标识者替换内容。
 
     void assign(size_type count, const T &value); // 以 count 份 value 的副本替换内容。
@@ -217,6 +229,7 @@ list<T>::list(size_type count, const value_type &value) {
 
 template <typename T>
 list<T>::list(const list &other) {
+    list_size = other.list_size;
     auto iter = other.cbegin();
     dummy_node = new list_node<value_type>;
     node *temp_pointer = dummy_node;
@@ -227,24 +240,23 @@ list<T>::list(const list &other) {
     }
     temp_pointer->next = dummy_node;
     dummy_node->prev = temp_pointer;
-    this->list_size = other.list_size;
 }
 
 template <typename T>
-list<T>::list(list &&other) {
+list<T>::list(list &&other) noexcept {
     this->dummy_node = other.dummy_node;
-    this->list_size = other.list_size;
     other.dummy_node = new list_node<value_type>;
     other.dummy_node->next = other.dummy_node;
     other.dummy_node->prev = other.dummy_node;
     other.list_size = 0;
+    list_size = other.list_size;
 }
 
 template <typename T>
 void list<T>::clear() noexcept {
     auto iter = this->begin();
     while (iter != this->end()) {
-        auto temp = iter->get_ptr();
+        auto temp = iter.get_ptr();
         ++iter;
         delete temp;
     }
@@ -279,7 +291,7 @@ list<T> &list<T>::operator=(const list &other) {
 }
 
 template <typename T>
-list<T> &list<T>::operator=(list &&other) {
+list<T> &list<T>::operator=(list &&other) noexcept {
     this->clear();
     delete this->dummy_node;
     this->dummy_node = other.dummy_node;
@@ -325,61 +337,87 @@ const T &list<T>::back() const {
 }
 
 template <typename T>
-list<T>::iterator list<T>::begin() noexcept {
+typename list<T>::iterator list<T>::begin() noexcept {
     iterator temp(this->dummy_node->next);
     return temp;
 }
 
 template <typename T>
-list<T>::const_iterator list<T>::begin() const noexcept {
+typename list<T>::const_iterator list<T>::begin() const noexcept {
     const_iterator temp(this->dummy_node->next);
     return temp;
 }
 
 template <typename T>
-list<T>::const_iterator list<T>::cbegin() const noexcept {
+typename list<T>::const_iterator list<T>::cbegin() const noexcept {
     const_iterator temp(this->dummy_node->next);
     return temp;
 }
 
 template <typename T>
-list<T>::iterator list<T>::end() noexcept {
+typename list<T>::iterator list<T>::end() noexcept {
     iterator temp(this->dummy_node);
     return temp;
 }
 
 template <typename T>
-list<T>::const_iterator list<T>::end() const noexcept {
+typename list<T>::const_iterator list<T>::end() const noexcept {
     const_iterator temp(this->dummy_node);
     return temp;
 }
 
 template <typename T>
-list<T>::const_iterator list<T>::cend() const noexcept {
+typename list<T>::const_iterator list<T>::cend() const noexcept {
     const_iterator temp(this->dummy_node);
     return temp;
 }
 
 template <typename T>
-list<T>::reverse_iterator list<T>::rbegin() noexcept {
-    reverse_iterator temp(this->dummy_node);
+typename list<T>::reverse_iterator list<T>::rbegin() noexcept {
+    reverse_iterator temp(iterator(this->dummy_node));
     return temp;
 }
 
 template <typename T>
-list<T>::const_reverse_iterator list<T>::rbegin() const noexcept {
-    const_reverse_iterator temp(this->dummy_node);
+typename list<T>::const_reverse_iterator list<T>::rbegin() const noexcept {
+    const_reverse_iterator temp(const_iterator(this->dummy_node));
     return temp;
 }
 
 template <typename T>
-list<T>::const_reverse_iterator list<T>::crbegin() const noexcept {
-    const_reverse_iterator temp(this->dummy_node);
+typename list<T>::const_reverse_iterator list<T>::crbegin() const noexcept {
+    const_reverse_iterator temp(const_iterator(this->dummy_node));
     return temp;
 }
 
 template <typename T>
-list<T>::reverse_iterator list<T>::rend() noexcept {
-    reverse_iterator temp(this->dummy_node->next);
+typename list<T>::reverse_iterator list<T>::rend() noexcept {
+    reverse_iterator temp(iterator(this->dummy_node->next));
     return temp;
+}
+
+template <typename T>
+typename list<T>::const_reverse_iterator list<T>::rend() const noexcept {
+    const_reverse_iterator temp(const_iterator(this->dummy_node->next));
+    return temp;
+}
+
+template <typename T>
+typename list<T>::const_reverse_iterator list<T>::crend() const noexcept {
+    const_reverse_iterator temp(const_iterator(this->dummy_node->next));
+    return temp;
+}
+template <typename T>
+bool list<T>::empty() const noexcept {
+    return !list_size;
+}
+template <typename T>
+typename list<T>::iterator list<T>::insert(list::const_iterator pos, const T &value) {
+    auto current = pos.get_ptr();
+    auto prev = current->prev;
+    auto new_node = new node(value, current, prev);
+    prev->next = new_node;
+    current->prev = new_node;
+    ++list_size;
+    return iterator(new_node);
 }
