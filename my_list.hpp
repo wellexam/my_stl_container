@@ -10,6 +10,7 @@ public:
 
     list_node() : next(nullptr), prev(nullptr){};
     explicit list_node(const T &_data) : data(_data){};
+    explicit list_node(const T &&_data) : data(std::move(_data)){};
     list_node(const T &_data, list_node *_next, list_node *_prev) : data(_data), next(_next), prev(_prev){};
 };
 
@@ -27,9 +28,10 @@ protected:
     node *current_node;
 
 public:
-    explicit list_iterator(node *_current_node) : current_node(_current_node) {}
     list_iterator() : current_node(nullptr) {}
+    explicit list_iterator(node *_current_node) : current_node(_current_node) {}
     list_iterator(const iterator &other) : current_node(other.get_ptr()) {}
+    list_iterator(const_iterator &other) : current_node(other.get_ptr()) {}
 
     bool operator==(const iterator &other) const { return this->current_node == other.current_node; }
     bool operator!=(const iterator &other) const { return !operator==(other); }
@@ -66,10 +68,10 @@ public:
 
 template <typename T, typename Ref, typename Ptr>
 list_iterator<T, Ref, Ptr> &list_iterator<T, Ref, Ptr>::operator=(const list_iterator::iterator &other) {
-    if (current_node == other.current_node) {
+    if (current_node == other.get_ptr()) {
         return *this;
     }
-    current_node = other.current_node;
+    current_node = other.get_ptr();
     return *this;
 }
 
@@ -90,10 +92,6 @@ private:
     size_type list_size; //链表元素数量
 
 public:
-    //友元类
-    // friend class iterator;
-    // friend class const_iterator;
-
     //构造函数
     list();                                         // 默认构造函数。构造拥有默认构造的分配器的空容器
     list(size_type count, const value_type &value); // 构造拥有 count 个有值 value 的元素的容器
@@ -407,10 +405,12 @@ typename list<T>::const_reverse_iterator list<T>::crend() const noexcept {
     const_reverse_iterator temp(const_iterator(this->dummy_node->next));
     return temp;
 }
+
 template <typename T>
 bool list<T>::empty() const noexcept {
     return !list_size;
 }
+
 template <typename T>
 typename list<T>::iterator list<T>::insert(list::const_iterator pos, const T &value) {
     auto current = pos.get_ptr();
@@ -420,4 +420,45 @@ typename list<T>::iterator list<T>::insert(list::const_iterator pos, const T &va
     current->prev = new_node;
     ++list_size;
     return iterator(new_node);
+}
+
+template <typename T>
+typename list<T>::iterator list<T>::insert(const_iterator pos, T &&value) {
+    auto current = pos.get_ptr();
+    auto prev = current->prev;
+    auto new_node = new node(std::move(value), current, prev);
+    prev->next = new_node;
+    current->prev = new_node;
+    ++list_size;
+    return iterator(new_node);
+}
+
+template <typename T>
+typename list<T>::iterator list<T>::insert(const_iterator pos, size_type count, const T &value) {
+    if (!count) {
+        return pos;
+    }
+    while (count--) {
+        pos = insert(pos, value);
+    }
+    list_size += count;
+    return pos;
+}
+
+template <typename T>
+template <typename InputIt>
+typename list<T>::iterator list<T>::insert(const_iterator pos, InputIt first, InputIt last) {
+    auto prev = pos.get_ptr()->prev;
+    while (first != last) {
+        insert(pos, *first);
+        ++first;
+        ++list_size;
+    }
+    return iterator(prev->next);
+}
+
+template <typename T>
+template <class... Args>
+typename list<T>::iterator list<T>::emplace(const_iterator pos, Args &&...args) {
+    auto new_node = new node(std::forward<Args>(args));
 }
