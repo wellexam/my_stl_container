@@ -1,51 +1,60 @@
 #include "my_list.hpp"
 #include <iostream>
+#include <string>
+#include <vector>
 
 int main() {
     using std::cout;
     using std::endl;
-    list<int> my_list_1(1, 0);
-    list<bool> my_list_2(6, true);
-    auto iter1 = my_list_1.end();
-    for (int i = 1; i < 5; ++i) {
-        auto temp = my_list_1.insert(iter1, i);
-        cout << *temp << endl;
+    list<int> list_1, lise_2(5, 1), list_3(5), list_4{1, 2, 3, 4, 5, 6}, list_5(list_4), list_6 = list_5, list_7 = {1, 2, 3, 4, 5, 6, 7};
+    auto list_8(std::move(list_5));
+    std::vector<list<int> *> vec{&list_1, &lise_2, &list_3, &list_4, &list_5, &list_6, &list_7, &list_8};
+    list_4.emplace_back(29);
+    cout << *(--list_4.cend()) << endl;
+    auto temp = 56564;
+    list_8.emplace_back(temp);
+    cout << temp << endl;
+    auto count = 1;
+    for (auto &i : vec) {
+        cout << count++ << ":";
+        cout << i->front() << " ";
+        for (auto &j : *i) {
+            cout << j << " ";
+        }
+        cout << i->back() << " ";
+        cout << endl;
     }
-    auto iter = my_list_1.begin();
-    while (iter != my_list_1.end()) {
-        cout << *iter << endl;
-        ++iter;
+    list_4.swap(list_7);
+    for (auto &i : list_4) {
+        cout << i << " ";
     }
-    my_list_1.clear();
-    iter = my_list_1.begin();
-    while (iter != my_list_1.end()) {
-        cout << *iter << endl;
-        ++iter;
+    cout << endl;
+    for (auto &i : list_7) {
+        cout << i << " ";
     }
-    //auto iter2 = my_list_1.begin();
-    //auto iter3 = my_list_1.cbegin();
-    //auto iter4 = my_list_1.cend();
-    //// auto iter5 = my_list_1.rbegin();
-    //++iter1;
-    //cout << *iter1 << endl;
-    //iter1++;
-    //cout << *iter1 << endl;
-    //++iter2;
-    //cout << *iter2 << endl;
-    //iter2++;
-    //cout << *iter2 << endl;
-    //++iter3;
-    //cout << *iter3 << endl;
-    //iter3++;
-    //cout << *iter3 << endl;
-    //++iter4;
-    //cout << *iter4 << endl;
-    //iter4++;
-    //cout << *iter4 << endl;
-    //auto temp = iter1++;
-    //cout << (temp == iter1) << endl;
-    //my_list_1.clear();
-    //auto iter5 = my_list_1.begin();
-    //auto iter6 = my_list_1.end();
-    //cout << (iter5 == iter6) << endl;
+    cout << endl;
+    count = 1;
+    for (auto &i : vec) {
+        cout << count++ << ":";
+        cout << "size = " << i->size() << "\t";
+        i->pop_back();
+        i->pop_front();
+        for (auto &j : *i) {
+            cout << j << " ";
+        }
+        cout << "\t";
+        cout << "size = " << i->size();
+        cout << endl;
+    }
+    for (auto &i : vec) {
+        cout << count++ << ":";
+        cout << "size = " << i->size() << "\t";
+        i->resize(10);
+        for (auto &j : *i) {
+            cout << j << " ";
+        }
+        cout << "\t";
+        cout << "size = " << i->size();
+        cout << endl;
+    }
 }
