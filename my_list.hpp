@@ -2,6 +2,8 @@
 #include <iostream>
 #include <iterator>
 
+namespace my_stl {
+
 template <typename T, typename Ref, typename Ptr>
 class list_iterator;
 
@@ -32,30 +34,34 @@ public:
     using iterator = list_iterator<T, T &, T *>;
     using const_iterator = list_iterator<T, const T &, const T *>;
     using value_type = T;
-    using pointer = T *;
-    using reference = T &;
+    using pointer = Ptr;
+    using reference = Ref;
+    using const_pointer = const T *;
+    using const_reference = const T &;
     using difference_type = std::ptrdiff_t;
     using iterator_category = std::bidirectional_iterator_tag;
     using node = list_node<value_type>;
 
     friend class list<T>;
+    friend class list_iterator<T, T &, T *>;
+    friend class list_iterator<T, const T &, const T *>;
 
 protected:
-    node *current_node;
+    node *current_node = nullptr;
 
 public:
-    list_iterator() : current_node(nullptr) {}
+    list_iterator() {}
     explicit list_iterator(node *_current_node) : current_node(_current_node) {}
     list_iterator(const iterator &other) : current_node(other.current_node) {}
-    list_iterator(const_iterator &other) : current_node(other.current_node) {}
-    list_iterator(iterator &&other) noexcept : current_node(other.current_node) {}
+    list_iterator(const const_iterator &other) : current_node(other.current_node) {}
+    list_iterator(iterator &&other) noexcept : current_node(std::move(other.current_node)) {}
     list_iterator(const_iterator &&other) noexcept;
 
     virtual ~list_iterator() = default;
 
     bool operator==(const iterator &other) const { return this->current_node == other.current_node; }
     bool operator==(const_iterator &other) const { return this->current_node == other.current_node; }
-    bool operator==(const iterator &&other) const { return this->current_node == other.current_node; }
+    bool operator==(iterator &&other) const { return this->current_node == other.current_node; }
     bool operator==(const_iterator &&other) const { return this->current_node == other.current_node; }
     template <class iter>
     bool operator!=(iter &&other) const {
@@ -63,8 +69,10 @@ public:
     }
     list_iterator &operator=(const iterator &other);
 
-    Ref operator*() const { return current_node->data; }
-    Ptr operator->() const { return &(current_node->data); }
+    reference operator*() { return current_node->data; }
+    pointer operator->() { return &(current_node->data); }
+    const_reference operator*() const { return current_node->data; }
+    const_pointer operator->() const { return &(current_node->data); }
 
     self &operator++() {
         this->current_node = this->current_node->next;
@@ -132,7 +140,7 @@ public:
     list &operator=(std::initializer_list<T> ilist); // 以 initializer_list ilist 所标识者替换内容。
 
     void assign(size_type count, const T &value); // 以 count 份 value 的副本替换内容。
-    template <class InputIt>
+    template <typename InputIt>
     void assign(InputIt first, InputIt last);    // 以范围 [first, last) 中元素的副本替换内容。若任一参数是指向 *this 中的迭代器则行为未定义。
     void assign(std::initializer_list<T> ilist); // 以来自 initializer_list ilist 的元素替换内容
 
@@ -166,11 +174,11 @@ public:
     iterator insert(const_iterator pos, const T &value);                  //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, T &&value);                       //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, size_type count, const T &value); //插入元素到容器中的指定位置。
-    template <class InputIt>                                              //
+    template <typename InputIt>                                              //
     iterator insert(const_iterator pos, InputIt first, InputIt last);     //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, std::initializer_list<T> ilist);  //插入元素到容器中的指定位置。
 
-    template <class... Args>
+    template <typename... Args>
     iterator emplace(const_iterator pos, Args &&...args); //直接于 pos 前插入元素到容器中。
 
     iterator erase(const_iterator pos);                        //移除位于 pos 的元素。
@@ -179,7 +187,7 @@ public:
     void push_back(const T &value); //后附给定元素 value 到容器尾。 初始化新元素为 value 的副本。
     void push_back(T &&value);      //后附给定元素 value 到容器尾。移动 value 进新元素。
 
-    template <class... Args>
+    template <typename... Args>
     void emplace_back(Args &&...args); //添加新元素到容器尾。
 
     void pop_back(); //移除容器的末元素。
@@ -187,7 +195,7 @@ public:
     void push_front(const T &value); //前附给定元素 value 到容器起始。
     void push_front(T &&value);      //前附给定元素 value 到容器起始。
 
-    template <class... Args>
+    template <typename... Args>
     void emplace_front(Args &&...args); //插入新元素到容器起始。
 
     void pop_front(); //移除容器首元素。指向被擦除元素的迭代器和引用被非法化。
@@ -200,9 +208,9 @@ public:
     //操作
     void merge(list &other);                //归并二个已排序链表为一个。链表应以升序排序。
     void merge(list &&other);               //归并二个已排序链表为一个。链表应以升序排序。
-    template <class Compare>                //
+    template <typename Compare>                //
     void merge(list &other, Compare comp);  //归并二个已排序链表为一个。链表应以升序排序。
-    template <class Compare>                //
+    template <typename Compare>                //
     void merge(list &&other, Compare comp); //归并二个已排序链表为一个。链表应以升序排序。
 
     //从一个 list 转移元素给另一个。不复制或移动元素，仅重指向链表结点的内部指针。
@@ -216,17 +224,18 @@ public:
                 const_iterator last); //从 other 转移范围 [first, last) 中的元素到 *this 。元素被插入到 pos 所指向的元素之前。若 pos 是范围 [first,last) 中的迭代器则行为未定义。
 
     void remove(const T &value);      //移除所有等于 value 的元素
-    template <class UnaryPredicate>   //
+    template <typename UnaryPredicate>   //
     void remove_if(UnaryPredicate p); //移除所有谓词 p 对它返回 true 的元素。
 
     void reverse() noexcept; //逆转容器中的元素顺序。不非法化任何引用或迭代器。
 
     void unique();                   //从容器移除所有相继的重复元素。只留下相等元素组中的第一个元素。
-    template <class BinaryPredicate> //
+    template <typename BinaryPredicate> //
     void unique(BinaryPredicate p);  //从容器移除所有相继的重复元素。只留下相等元素组中的第一个元素。
 
+    //时间太赶了所以只写了冒泡
     void sort();             //以升序排序元素。保持相等元素的顺序。
-    template <class Compare> //
+    template <typename Compare> //
     void sort(Compare comp); //以升序排序元素。保持相等元素的顺序。
 };
 
@@ -412,54 +421,47 @@ const T &list<T>::back() const {
 
 template <typename T>
 typename list<T>::iterator list<T>::begin() noexcept {
-    iterator temp(this->dummy_node->next);
-    return temp;
+    return iterator(this->dummy_node->next);
 }
 
 template <typename T>
 typename list<T>::const_iterator list<T>::begin() const noexcept {
-    const_iterator temp(this->dummy_node->next);
-    return temp;
+    return const_iterator(this->dummy_node->next);
 }
 
 template <typename T>
 typename list<T>::const_iterator list<T>::cbegin() const noexcept {
-    const_iterator temp(this->dummy_node->next);
-    return temp;
+    return const_iterator(this->dummy_node->next);
 }
 
 template <typename T>
 typename list<T>::iterator list<T>::end() noexcept {
-    iterator temp(this->dummy_node);
-    return temp;
+    return iterator(this->dummy_node);
 }
 
 template <typename T>
 typename list<T>::const_iterator list<T>::end() const noexcept {
-    const_iterator temp(this->dummy_node);
-    return temp;
+    return const_iterator(this->dummy_node);
 }
 
 template <typename T>
 typename list<T>::const_iterator list<T>::cend() const noexcept {
-    const_iterator temp(this->dummy_node);
-    return temp;
+    return const_iterator(this->dummy_node);
 }
 
 template <typename T>
 typename list<T>::reverse_iterator list<T>::rbegin() noexcept {
-    return reverse_iterator(iterator(this->dummy_node));
+    return reverse_iterator(const_iterator(this->dummy_node));
 }
 
 template <typename T>
 typename list<T>::const_reverse_iterator list<T>::rbegin() const noexcept {
-    const_reverse_iterator temp(const_iterator(this->dummy_node));
-    return temp;
+    return const_reverse_iterator(const_iterator(this->dummy_node));
 }
 
 template <typename T>
 typename list<T>::const_reverse_iterator list<T>::crbegin() const noexcept {
-    const_reverse_iterator temp(const_iterator(this->dummy_node));
+    const_reverse_iterator temp(iterator(this->dummy_node));
     return temp;
 }
 
@@ -655,7 +657,7 @@ void list<T>::resize(size_type count) {
     }
     if (list_size > count) {
         auto iter = cbegin();
-        for (int i = 0; i < count; ++i) {
+        for (size_type i = 0; i < count; ++i) {
             ++iter;
         }
         erase(iter, cend());
@@ -696,3 +698,40 @@ void list<T>::swap(list &other) {
     std::swap(this->dummy_node, other.dummy_node);
     std::swap(this->list_size, other.list_size);
 }
+
+template <typename T>
+void list<T>::sort() {
+    auto current = begin(), last = --end();
+    while (last != current) {
+        while (current != last) {
+            auto temp = current;
+            ++temp;
+            if (*temp < *current) {
+                std::swap(*temp, *current);
+            }
+            ++current;
+        }
+        --last;
+        current = begin();
+    }
+}
+
+template <typename T>
+template <typename Compare>
+void list<T>::sort(Compare comp) {
+    auto current = begin(), last = --end();
+    while (last != current) {
+        while (current != last) {
+            auto temp = current;
+            ++temp;
+            if (comp(*temp, *current)) {
+                std::swap(*temp, *current);
+            }
+            ++current;
+        }
+        --last;
+        current = begin();
+    }
+}
+
+} // namespace my_stl

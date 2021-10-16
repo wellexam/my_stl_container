@@ -2,22 +2,40 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <list>
+
+class shit {
+public:
+    int data1 = 0;
+    int data2 = 0;
+
+    bool operator<(shit &other) const { return this->data1 < other.data1; }
+
+    shit() = default;
+    shit(int _data1, int _data2) : data1(_data1), data2(_data2) {}
+    ~shit() = default;
+};
+
+bool cmp(shit &a, shit &b) {
+    return a.data1 < b.data1;
+}
 
 int main() {
     using std::cout;
     using std::endl;
-    // list<int> shit;
-    // auto iter = shit.rbegin();
-    list<int> my_list{12312, 12312, 3123, 123, 12, 31, 23, 123, 213};
-    auto iter = my_list.crbegin();
-    while (iter != my_list.crend()) {
-        cout << *iter << " ";
+    std::list<int> std_list{1, 2, 3, 5, 3, 2, 7};
+    std_list.sort();
+    my_stl::list<shit> my_list{shit(1, 3), shit(2, 3), shit(5, 3), shit(2, 7)};
+    my_list.sort(cmp);
+    auto iter = my_list.begin();
+    while (iter != my_list.end()) {
+        cout << iter->data1 << " " << iter->data2 << "\t";
         ++iter;
     }
     cout << endl;
-    list<int> list_1, lise_2(5, 1), list_3(5), list_4{1, 2, 3, 4, 5, 6}, list_5(list_4), list_6 = list_5, list_7 = {1, 2, 3, 4, 5, 6, 7};
+    my_stl::list<int> list_1, lise_2(5, 1), list_3(5), list_4{1, 2, 3, 4, 5, 6}, list_5(list_4), list_6 = list_5, list_7 = {1, 2, 3, 4, 5, 6, 7};
     auto list_8(std::move(list_5));
-    std::vector<list<int> *> vec{&list_1, &lise_2, &list_3, &list_4, &list_5, &list_6, &list_7, &list_8};
+    std::vector<my_stl::list<int> *> vec{&list_1, &lise_2, &list_3, &list_4, &list_5, &list_6, &list_7, &list_8};
     list_4.emplace_back(29);
     cout << *(--list_4.cend()) << endl;
     auto temp = 56564;
