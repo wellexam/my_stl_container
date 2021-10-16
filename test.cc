@@ -6,6 +6,15 @@
 int main() {
     using std::cout;
     using std::endl;
+    // list<int> shit;
+    // auto iter = shit.rbegin();
+    list<int> my_list{12312, 12312, 3123, 123, 12, 31, 23, 123, 213};
+    auto iter = my_list.crbegin();
+    while (iter != my_list.crend()) {
+        cout << *iter << " ";
+        ++iter;
+    }
+    cout << endl;
     list<int> list_1, lise_2(5, 1), list_3(5), list_4{1, 2, 3, 4, 5, 6}, list_5(list_4), list_6 = list_5, list_7 = {1, 2, 3, 4, 5, 6, 7};
     auto list_8(std::move(list_5));
     std::vector<list<int> *> vec{&list_1, &lise_2, &list_3, &list_4, &list_5, &list_6, &list_7, &list_8};

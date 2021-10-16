@@ -2,32 +2,43 @@
 #include <iostream>
 #include <iterator>
 
+template <typename T, typename Ref, typename Ptr>
+class list_iterator;
+
 template <typename T>
-class list_node {
+class list;
+
+template <typename T>
+class list_node final {
 public:
     T data;
-    list_node *next;
-    list_node *prev;
+    list_node *next = nullptr;
+    list_node *prev = nullptr;
 
-    list_node() : next(nullptr), prev(nullptr) {}
+    list_node() = default;
     explicit list_node(const T &_data) : data(_data) { std::cout << "lvalue construct node" << std::endl; }
-    explicit list_node(T &&_data) : data(std::move(_data)) { std::cout << "rvalue construct node" << std::endl; }
+    explicit list_node(T &&_data) noexcept : data(std::move(_data)) { std::cout << "rvalue construct node" << std::endl; }
     list_node(const list_node &other) : data(other.data), next(other.next), prev(other.prev) { std::cout << "copy construct node" << std::endl; }
     list_node(list_node &&other) noexcept : data(std::move(other.data)), next(other.next), prev(other.prev) { std::cout << "move construct node" << std::endl; }
     list_node(list_node *_next, list_node *_prev) : next(_next), prev(_prev) {}
     list_node(const T &_data, list_node *_next, list_node *_prev) : data(_data), next(_next), prev(_prev) { std::cout << "lvalue construct node" << std::endl; }
-    list_node(T &&_data, list_node *_next, list_node *_prev) : data(std::move(_data)), next(_next), prev(_prev) { std::cout << "rvalue construct node" << std::endl; }
+    list_node(T &&_data, list_node *_next, list_node *_prev) noexcept : data(std::move(_data)), next(_next), prev(_prev) { std::cout << "rvalue construct node" << std::endl; }
 };
 
 template <typename T, typename Ref, typename Ptr>
-class list_iterator : public std::iterator<std::bidirectional_iterator_tag, T> {
+class list_iterator {
+public:
     using self = list_iterator<T, Ref, Ptr>;
     using iterator = list_iterator<T, T &, T *>;
     using const_iterator = list_iterator<T, const T &, const T *>;
-    using typename std::iterator<std::bidirectional_iterator_tag, T>::value_type;
-    using typename std::iterator<std::bidirectional_iterator_tag, T>::pointer;
-    using typename std::iterator<std::bidirectional_iterator_tag, T>::reference;
+    using value_type = T;
+    using pointer = T *;
+    using reference = T &;
+    using difference_type = std::ptrdiff_t;
+    using iterator_category = std::bidirectional_iterator_tag;
     using node = list_node<value_type>;
+
+    friend class list<T>;
 
 protected:
     node *current_node;
@@ -35,26 +46,25 @@ protected:
 public:
     list_iterator() : current_node(nullptr) {}
     explicit list_iterator(node *_current_node) : current_node(_current_node) {}
-    list_iterator(const iterator &other) : current_node(other.get_ptr()) {}
-    list_iterator(const_iterator &other) : current_node(other.get_ptr()) {}
-    list_iterator(iterator &&other) : current_node(other.get_ptr()) {}
-    list_iterator(const_iterator &&other);
+    list_iterator(const iterator &other) : current_node(other.current_node) {}
+    list_iterator(const_iterator &other) : current_node(other.current_node) {}
+    list_iterator(iterator &&other) noexcept : current_node(other.current_node) {}
+    list_iterator(const_iterator &&other) noexcept;
 
-    bool operator==(const iterator &other) const { return this->current_node == other.get_ptr(); }
-    bool operator==(const_iterator &other) const { return this->current_node == other.get_ptr(); }
-    bool operator==(const iterator &&other) const { return this->current_node == other.get_ptr(); }
-    bool operator==(const_iterator &&other) const { return this->current_node == other.get_ptr(); }
+    virtual ~list_iterator() = default;
+
+    bool operator==(const iterator &other) const { return this->current_node == other.current_node; }
+    bool operator==(const_iterator &other) const { return this->current_node == other.current_node; }
+    bool operator==(const iterator &&other) const { return this->current_node == other.current_node; }
+    bool operator==(const_iterator &&other) const { return this->current_node == other.current_node; }
     template <class iter>
     bool operator!=(iter &&other) const {
         return !operator==(std::forward<iter>(other));
     }
     list_iterator &operator=(const iterator &other);
 
-    Ref operator*() const { return ((node *)current_node)->data; }
-    Ptr operator->() const { return &(operator*()); }
-
-    node *get_ptr() const { return current_node; }
-    node *&get_ref_to_ptr() { return current_node; }
+    Ref operator*() const { return current_node->data; }
+    Ptr operator->() const { return &(current_node->data); }
 
     self &operator++() {
         this->current_node = this->current_node->next;
@@ -81,14 +91,14 @@ public:
 
 template <typename T, typename Ref, typename Ptr>
 list_iterator<T, Ref, Ptr> &list_iterator<T, Ref, Ptr>::operator=(const list_iterator::iterator &other) {
-    if (current_node == other.get_ptr()) {
+    if (current_node == other.current_node) {
         return *this;
     }
-    current_node = other.get_ptr();
+    current_node = other.current_node;
     return *this;
 }
 template <typename T, typename Ref, typename Ptr>
-list_iterator<T, Ref, Ptr>::list_iterator(list_iterator::const_iterator &&other) : current_node(other.get_ptr()) {}
+list_iterator<T, Ref, Ptr>::list_iterator(list_iterator::const_iterator &&other) noexcept : current_node(std::move(other.current_node)) {}
 
 template <typename T>
 class list {
@@ -295,7 +305,7 @@ template <typename T>
 void list<T>::clear() noexcept {
     auto iter = this->begin();
     while (iter != this->end()) {
-        auto temp = iter.get_ptr();
+        auto temp = iter.current_node;
         ++iter;
         delete temp;
     }
@@ -438,8 +448,7 @@ typename list<T>::const_iterator list<T>::cend() const noexcept {
 
 template <typename T>
 typename list<T>::reverse_iterator list<T>::rbegin() noexcept {
-    reverse_iterator temp(iterator(this->dummy_node));
-    return temp;
+    return reverse_iterator(iterator(this->dummy_node));
 }
 
 template <typename T>
@@ -479,7 +488,7 @@ bool list<T>::empty() const noexcept {
 
 template <typename T>
 typename list<T>::iterator list<T>::insert(const_iterator pos, const T &value) {
-    auto current = pos.get_ptr();
+    auto current = pos.current_node;
     auto prev = current->prev;
     auto new_node = new node(value, current, prev);
     prev->next = new_node;
@@ -490,7 +499,7 @@ typename list<T>::iterator list<T>::insert(const_iterator pos, const T &value) {
 
 template <typename T>
 typename list<T>::iterator list<T>::insert(const_iterator pos, T &&value) {
-    auto current = pos.get_ptr();
+    auto current = pos.current_node;
     auto prev = current->prev;
     auto new_node = new node(std::move(value), current, prev);
     prev->next = new_node;
@@ -513,7 +522,7 @@ typename list<T>::iterator list<T>::insert(const_iterator pos, size_type count, 
 template <typename T>
 template <typename InputIt>
 typename list<T>::iterator list<T>::insert(const_iterator pos, InputIt first, InputIt last) {
-    auto prev = pos.get_ptr()->prev;
+    auto prev = pos.current_node->prev;
     while (first != last) {
         insert(pos, *first);
         ++first;
@@ -523,7 +532,7 @@ typename list<T>::iterator list<T>::insert(const_iterator pos, InputIt first, In
 
 template <typename T>
 typename list<T>::iterator list<T>::insert(list::const_iterator pos, std::initializer_list<T> ilist) {
-    auto prev = pos.get_ptr()->prev;
+    auto prev = pos.current_node->prev;
     for (auto &i : ilist) {
         insert(pos, std::move(i));
     }
@@ -533,7 +542,7 @@ typename list<T>::iterator list<T>::insert(list::const_iterator pos, std::initia
 template <typename T>
 template <class... Args>
 typename list<T>::iterator list<T>::emplace(const_iterator pos, Args &&...args) {
-    auto current = pos.get_ptr();
+    auto current = pos.current_node;
     auto prev = current->prev;
     auto new_node = new node(std::forward<Args>(args)...);
     new_node->next = current;
@@ -546,7 +555,7 @@ typename list<T>::iterator list<T>::emplace(const_iterator pos, Args &&...args) 
 
 template <typename T>
 typename list<T>::iterator list<T>::erase(const_iterator pos) {
-    auto current = pos.get_ptr();
+    auto current = pos.current_node;
     auto prev = current->prev;
     auto next = current->next;
     if (current == dummy_node) {
@@ -561,14 +570,14 @@ typename list<T>::iterator list<T>::erase(const_iterator pos) {
 
 template <typename T>
 typename list<T>::iterator list<T>::erase(const_iterator first, const_iterator last) {
-    auto prev = first.get_ptr()->prev;
+    auto prev = first.current_node->prev;
     while (first != last) {
-        auto current = first.get_ptr();
+        auto current = first.current_node;
         ++first;
         delete current;
         --list_size;
     }
-    prev->next = last.get_ptr();
+    prev->next = last.current_node;
     return last;
 }
 
