@@ -11,6 +11,30 @@ template <typename T>
 class list;
 
 template <typename T>
+class list_node;
+
+template <typename T>
+bool operator==(const list<T> &lhs, const list<T> &rhs);
+
+template <typename T>
+bool operator!=(const list<T> &lhs, const list<T> &rhs);
+
+template <typename T>
+bool operator<(const list<T> &lhs, const list<T> &rhs);
+
+template <typename T>
+bool operator<=(const list<T> &lhs, const list<T> &rhs);
+
+template <typename T>
+bool operator>(const list<T> &lhs, const list<T> &rhs);
+
+template <typename T>
+bool operator>=(const list<T> &lhs, const list<T> &rhs);
+
+template <typename T>
+void swap(list<T> &lhs, list<T> &rhs);
+
+template <typename T>
 class list_node final {
 public:
     T data;
@@ -18,13 +42,13 @@ public:
     list_node *prev = nullptr;
 
     list_node() = default;
-    explicit list_node(const T &_data) : data(_data) { std::cout << "lvalue construct node" << std::endl; }
-    explicit list_node(T &&_data) noexcept : data(std::move(_data)) { std::cout << "rvalue construct node" << std::endl; }
-    list_node(const list_node &other) : data(other.data), next(other.next), prev(other.prev) { std::cout << "copy construct node" << std::endl; }
-    list_node(list_node &&other) noexcept : data(std::move(other.data)), next(other.next), prev(other.prev) { std::cout << "move construct node" << std::endl; }
+    explicit list_node(const T &_data) : data(_data) {}
+    explicit list_node(T &&_data) noexcept : data(std::move(_data)) {}
+    list_node(const list_node &other) : data(other.data), next(other.next), prev(other.prev) {}
+    list_node(list_node &&other) noexcept : data(std::move(other.data)), next(other.next), prev(other.prev) {}
     list_node(list_node *_next, list_node *_prev) : next(_next), prev(_prev) {}
-    list_node(const T &_data, list_node *_next, list_node *_prev) : data(_data), next(_next), prev(_prev) { std::cout << "lvalue construct node" << std::endl; }
-    list_node(T &&_data, list_node *_next, list_node *_prev) noexcept : data(std::move(_data)), next(_next), prev(_prev) { std::cout << "rvalue construct node" << std::endl; }
+    list_node(const T &_data, list_node *_next, list_node *_prev) : data(_data), next(_next), prev(_prev) {}
+    list_node(T &&_data, list_node *_next, list_node *_prev) noexcept : data(std::move(_data)), next(_next), prev(_prev) {}
 };
 
 template <typename T, typename Ref, typename Ptr>
@@ -68,6 +92,9 @@ public:
         return !operator==(std::forward<iter>(other));
     }
     list_iterator &operator=(const iterator &other);
+    list_iterator &operator=(iterator &&other) noexcept;
+    list_iterator &operator=(const const_iterator &other);
+    list_iterator &operator=(const_iterator &&other) noexcept;
 
     reference operator*() { return current_node->data; }
     pointer operator->() { return &(current_node->data); }
@@ -98,13 +125,41 @@ public:
 };
 
 template <typename T, typename Ref, typename Ptr>
-list_iterator<T, Ref, Ptr> &list_iterator<T, Ref, Ptr>::operator=(const list_iterator::iterator &other) {
+list_iterator<T, Ref, Ptr> &list_iterator<T, Ref, Ptr>::operator=(const iterator &other) {
     if (current_node == other.current_node) {
         return *this;
     }
     current_node = other.current_node;
     return *this;
 }
+
+template <typename T, typename Ref, typename Ptr>
+list_iterator<T, Ref, Ptr> &list_iterator<T, Ref, Ptr>::operator=(iterator &&other) noexcept {
+    if (current_node == other.current_node) {
+        return *this;
+    }
+    current_node = std::move(other.current_node);
+    return *this;
+}
+
+template <typename T, typename Ref, typename Ptr>
+list_iterator<T, Ref, Ptr> &list_iterator<T, Ref, Ptr>::operator=(const const_iterator &other) {
+    if (current_node == other.current_node) {
+        return *this;
+    }
+    current_node = other.current_node;
+    return *this;
+}
+
+template <typename T, typename Ref, typename Ptr>
+list_iterator<T, Ref, Ptr> &list_iterator<T, Ref, Ptr>::operator=(const_iterator &&other) noexcept {
+    if (current_node == other.current_node) {
+        return *this;
+    }
+    current_node = std::move(other.current_node);
+    return *this;
+}
+
 template <typename T, typename Ref, typename Ptr>
 list_iterator<T, Ref, Ptr>::list_iterator(list_iterator::const_iterator &&other) noexcept : current_node(std::move(other.current_node)) {}
 
@@ -122,8 +177,10 @@ public:
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 private:
-    node *dummy_node;    //空白结点
-    size_type list_size; //链表元素数量
+    node *dummy_node;        //空白结点
+    size_type list_size = 0; //链表元素数量
+
+    iterator insert(const_iterator pos, node &other);
 
 public:
     //构造函数
@@ -174,7 +231,7 @@ public:
     iterator insert(const_iterator pos, const T &value);                  //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, T &&value);                       //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, size_type count, const T &value); //插入元素到容器中的指定位置。
-    template <typename InputIt>                                              //
+    template <typename InputIt>                                           //
     iterator insert(const_iterator pos, InputIt first, InputIt last);     //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, std::initializer_list<T> ilist);  //插入元素到容器中的指定位置。
 
@@ -208,9 +265,9 @@ public:
     //操作
     void merge(list &other);                //归并二个已排序链表为一个。链表应以升序排序。
     void merge(list &&other);               //归并二个已排序链表为一个。链表应以升序排序。
-    template <typename Compare>                //
+    template <typename Compare>             //
     void merge(list &other, Compare comp);  //归并二个已排序链表为一个。链表应以升序排序。
-    template <typename Compare>                //
+    template <typename Compare>             //
     void merge(list &&other, Compare comp); //归并二个已排序链表为一个。链表应以升序排序。
 
     //从一个 list 转移元素给另一个。不复制或移动元素，仅重指向链表结点的内部指针。
@@ -223,20 +280,20 @@ public:
     void splice(const_iterator pos, list &&other, const_iterator first,
                 const_iterator last); //从 other 转移范围 [first, last) 中的元素到 *this 。元素被插入到 pos 所指向的元素之前。若 pos 是范围 [first,last) 中的迭代器则行为未定义。
 
-    void remove(const T &value);      //移除所有等于 value 的元素
-    template <typename UnaryPredicate>   //
-    void remove_if(UnaryPredicate p); //移除所有谓词 p 对它返回 true 的元素。
+    void remove(const T &value);       //移除所有等于 value 的元素
+    template <typename UnaryPredicate> //
+    void remove_if(UnaryPredicate p);  //移除所有谓词 p 对它返回 true 的元素。
 
     void reverse() noexcept; //逆转容器中的元素顺序。不非法化任何引用或迭代器。
 
-    void unique();                   //从容器移除所有相继的重复元素。只留下相等元素组中的第一个元素。
+    void unique();                      //从容器移除所有相继的重复元素。只留下相等元素组中的第一个元素。
     template <typename BinaryPredicate> //
-    void unique(BinaryPredicate p);  //从容器移除所有相继的重复元素。只留下相等元素组中的第一个元素。
+    void unique(BinaryPredicate p);     //从容器移除所有相继的重复元素。只留下相等元素组中的第一个元素。
 
     //时间太赶了所以只写了冒泡
-    void sort();             //以升序排序元素。保持相等元素的顺序。
+    void sort();                //以升序排序元素。保持相等元素的顺序。
     template <typename Compare> //
-    void sort(Compare comp); //以升序排序元素。保持相等元素的顺序。
+    void sort(Compare comp);    //以升序排序元素。保持相等元素的顺序。
 };
 
 template <typename T>
@@ -331,7 +388,7 @@ list<T>::~list() {
 
 template <typename T>
 list<T> &list<T>::operator=(const list &other) {
-    if (this->dummy_node == other.dummy_node) {
+    if (this == &other) {
         return *this;
     }
     this->clear();
@@ -461,26 +518,22 @@ typename list<T>::const_reverse_iterator list<T>::rbegin() const noexcept {
 
 template <typename T>
 typename list<T>::const_reverse_iterator list<T>::crbegin() const noexcept {
-    const_reverse_iterator temp(iterator(this->dummy_node));
-    return temp;
+    return const_reverse_iterator(const_iterator(this->dummy_node));
 }
 
 template <typename T>
 typename list<T>::reverse_iterator list<T>::rend() noexcept {
-    reverse_iterator temp(iterator(this->dummy_node->next));
-    return temp;
+    return reverse_iterator(iterator(this->dummy_node->next));
 }
 
 template <typename T>
 typename list<T>::const_reverse_iterator list<T>::rend() const noexcept {
-    const_reverse_iterator temp(const_iterator(this->dummy_node->next));
-    return temp;
+    return const_reverse_iterator(const_iterator(this->dummy_node->next));
 }
 
 template <typename T>
 typename list<T>::const_reverse_iterator list<T>::crend() const noexcept {
-    const_reverse_iterator temp(const_iterator(this->dummy_node->next));
-    return temp;
+    return const_reverse_iterator(const_iterator(this->dummy_node->next));
 }
 
 template <typename T>
@@ -539,6 +592,19 @@ typename list<T>::iterator list<T>::insert(list::const_iterator pos, std::initia
         insert(pos, std::move(i));
     }
     return iterator(prev->next);
+}
+
+//在pos后插入节点other，只改变指针值。
+template <typename T>
+typename list<T>::iterator list<T>::insert(const_iterator pos, node &other) {
+    auto current = pos.current_node;
+    auto next = current->next;
+    current->next = &other;
+    next->prev = &other;
+    other.prev = current;
+    other.next = next;
+    ++list_size;
+    return iterator(&other);
 }
 
 template <typename T>
@@ -732,6 +798,296 @@ void list<T>::sort(Compare comp) {
         --last;
         current = begin();
     }
+}
+
+template <typename T>
+void list<T>::merge(list &other) {
+    if (this->dummy_node == other.dummy_node) {
+        return;
+    }
+    if (other.empty()) {
+        return;
+    }
+    auto iter_this = this->begin();
+    auto iter_other = other.begin();
+    if (!this->empty()) {
+        while (*iter_other < *iter_this) {
+            auto temp = iter_other;
+            ++iter_other;
+            insert(this->end(), *(temp.current_node));
+        }
+    }
+    while (iter_other != other.end()) {
+        if (iter_this != this->end()) {
+            auto next = iter_this;
+            ++next;
+            if (next != this->end()) {
+                if (!(*iter_other < *iter_this) && *iter_other < *next) {
+                    auto temp = iter_other;
+                    ++iter_other;
+                    iter_this = insert(iter_this, *(temp.current_node));
+                    continue;
+                } else {
+                    ++iter_this;
+                    continue;
+                }
+            } else {
+                auto temp = iter_other;
+                ++iter_other;
+                iter_this = insert(iter_this, *(temp.current_node));
+                continue;
+            }
+        } else {
+            auto temp = iter_other;
+            ++iter_other;
+            insert(--iter_this, *(temp.current_node));
+            iter_this = this->end();
+            continue;
+        }
+    }
+    other.dummy_node->next = other.dummy_node;
+    other.dummy_node->prev = other.dummy_node;
+    other.list_size = 0;
+}
+
+template <typename T>
+void list<T>::merge(list &&other) {
+    merge(other);
+}
+
+template <typename T>
+template <typename Compare>
+void list<T>::merge(list &other, Compare comp) {
+    if (this->dummy_node == other.dummy_node) {
+        return;
+    }
+    if (other.empty()) {
+        return;
+    }
+    auto iter_this = this->begin();
+    auto iter_other = other.begin();
+    if (!this->empty()) {
+        while (comp(*iter_other, *iter_this)) {
+            auto temp = iter_other;
+            ++iter_other;
+            insert(this->end(), *(temp.current_node));
+        }
+    }
+    while (iter_other != other.end()) {
+        if (iter_this != this->end()) {
+            auto next = iter_this;
+            ++next;
+            if (next != this->end()) {
+                if (!comp(*iter_other, *iter_this) && comp(*iter_other, *next)) {
+                    auto temp = iter_other;
+                    ++iter_other;
+                    iter_this = insert(iter_this, *(temp.current_node));
+                    continue;
+                } else {
+                    ++iter_this;
+                    continue;
+                }
+            } else {
+                auto temp = iter_other;
+                ++iter_other;
+                iter_this = insert(iter_this, *(temp.current_node));
+                continue;
+            }
+        } else {
+            auto temp = iter_other;
+            ++iter_other;
+            insert(--iter_this, *(temp.current_node));
+            iter_this = this->end();
+            continue;
+        }
+    }
+    other.dummy_node->next = other.dummy_node;
+    other.dummy_node->prev = other.dummy_node;
+    other.list_size = 0;
+}
+
+template <typename T>
+template <typename Compare>
+void list<T>::merge(list &&other, Compare comp) {
+    merge(other, comp);
+}
+template <typename T>
+void list<T>::splice(list::const_iterator pos, list &other) {
+    auto first = other.dummy_node->next;
+    auto last = other.dummy_node->prev;
+    first->prev = pos.current_node->prev;
+    pos.current_node->prev->next = first;
+    last->next = pos.current_node;
+    pos.current_node->prev = last;
+    other.dummy_node->prev = other.dummy_node;
+    other.dummy_node->next = other.dummy_node;
+    this->list_size += other.list_size;
+    other.list_size = 0;
+}
+
+template <typename T>
+void list<T>::splice(list::const_iterator pos, list &&other) {
+    splice(pos, other);
+}
+
+template <typename T>
+void list<T>::splice(list::const_iterator pos, list &other, list::const_iterator it) {
+    --pos;
+    auto prev = it, next = it;
+    --prev;
+    ++next;
+    prev.current_node->next = next.current_node;
+    next.current_node->prev = prev.current_node;
+    insert(pos, *(it.current_node));
+    --other.list_size;
+}
+
+template <typename T>
+void list<T>::splice(list::const_iterator pos, list &&other, list::const_iterator it) {
+    splice(pos, other, it);
+}
+
+template <typename T>
+void list<T>::splice(list::const_iterator pos, list &other, list::const_iterator first, list::const_iterator last) {
+    if (first == last) {
+        return;
+    }
+    auto len = std::distance(first, last);
+    --last;
+    auto prev = first.current_node->prev;
+    auto next = last.current_node->next;
+    first.current_node->prev = pos.current_node->prev;
+    pos.current_node->prev->next = first.current_node;
+    last.current_node->next = pos.current_node;
+    pos.current_node->prev = last.current_node;
+    prev->next = next;
+    next->prev = prev;
+    other.list_size -= len;
+    this->list_size += len;
+}
+
+template <typename T>
+void list<T>::splice(list::const_iterator pos, list &&other, list::const_iterator first, list::const_iterator last) {
+    splice(pos, other, first, last);
+}
+
+template <typename T>
+void list<T>::remove(const T &value) {
+    auto iter = cbegin();
+    while (iter != cend()) {
+        if (*iter == value) {
+            iter = erase(iter);
+        } else {
+            ++iter;
+        }
+    }
+}
+
+template <typename T>
+template <typename UnaryPredicate>
+void list<T>::remove_if(UnaryPredicate p) {
+    auto iter = cbegin();
+    while (iter != cend()) {
+        if (p(*iter)) {
+            iter = erase(iter);
+        } else {
+            ++iter;
+        }
+    }
+}
+
+template <typename T>
+void list<T>::reverse() noexcept {
+    auto iter = cbegin();
+    while (iter != cend()) {
+        auto temp = iter;
+        ++iter;
+        std::swap(temp.current_node->prev, temp.current_node->next);
+    }
+    std::swap(iter.current_node->next, iter.current_node->prev);
+}
+
+template <typename T>
+void list<T>::unique() {
+    auto iter = cbegin();
+    while (iter != cend()) {
+        auto next = iter;
+        ++next;
+        if (next != cend()) {
+            if (*next == *iter) {
+                iter = erase(iter);
+            } else {
+                ++iter;
+            }
+        } else {
+            ++iter;
+        }
+    }
+}
+
+template <typename T>
+template <typename BinaryPredicate>
+void list<T>::unique(BinaryPredicate p) {
+    auto iter = cbegin();
+    while (iter != cend()) {
+        auto next = iter;
+        ++next;
+        if (next != cend()) {
+            if (p(*next, *iter)) {
+                iter = erase(iter);
+            } else {
+                ++iter;
+            }
+        } else {
+            ++iter;
+        }
+    }
+}
+
+template <typename T>
+bool operator==(const list<T> &lhs, const list<T> &rhs) {
+    if (lhs.size() != rhs.size()) {
+        return false;
+    }
+    auto riter = rhs.cbegin();
+    auto liter = lhs.cbegin();
+    while (riter != rhs.cend()) {
+        if (!(*riter == *liter)) {
+            return false;
+        }
+        ++riter;
+        ++liter;
+    }
+    return true;
+}
+
+template <typename T>
+bool operator!=(const list<T> &lhs, const list<T> &rhs) {
+    return !(lhs == rhs);
+}
+
+template <typename T>
+bool operator<(const list<T> &lhs, const list<T> &rhs) {
+    return std::lexicographical_compare(lhs.cbegin(), lhs.cend(), rhs.cbegin(), rhs.cend());
+}
+
+template <typename T>
+bool operator<=(const list<T> &lhs, const list<T> &rhs) {
+    return !(rhs < lhs);
+}
+
+template <typename T>
+bool operator>(const list<T> &lhs, const list<T> &rhs) {
+    return rhs < lhs;
+}
+template <typename T>
+bool operator>=(const list<T> &lhs, const list<T> &rhs) {
+    return !(lhs < rhs);
+}
+
+template <typename T>
+void swap(list<T> &lhs, list<T> &rhs) {
+    lhs.swap(rhs);
 }
 
 } // namespace my_stl
