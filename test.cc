@@ -40,7 +40,7 @@ int main() {
     std::list<int> std_list{1, 2, 3, 5, 3, 2, 7};
     std_list.sort();
     my_stl::list<shit> my_list{shit(1, 3), shit(2, 3), shit(5, 3), shit(2, 7)};
-    my_stl::list<shit> my_list_2{shit(1, 4), shit(2, 4), shit(5, 4), shit(2, 4), shit(4, 1), shit(6, 3), shit(2, 4)};
+    my_stl::list<shit> my_list_2{shit(-1, 0), shit(1, 4), shit(2, 4), shit(5, 4), shit(2, 4), shit(4, 1), shit(6, 3), shit(2, 4)};
     my_list.splice(my_list.end(), std::move(my_list_2), ++my_list_2.begin(), --(--my_list_2.end()));
     for (auto &i : my_list) {
        cout << i.data1 << " " << i.data2 << "\t";
@@ -48,7 +48,7 @@ int main() {
     cout << my_list.size();
     cout << endl;
     my_list.sort();
-    my_list_2.unique(equal);
+   //  my_list_2.unique(equal);
     my_list_2.sort();
     for (auto &i : my_list_2) {
        cout << i.data1 << " " << i.data2 << "\t";
