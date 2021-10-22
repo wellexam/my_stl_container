@@ -37,31 +37,48 @@ public:
 public:
     vector_base() = default;
 
-    vector_base(size_t _n) : _M_impl() { _M_create_storage(_n); }
+    vector_base(size_t _n) : M_impl() { M_create_storage(_n); }
 
     vector_base(vector_base &&_x) { this->M_impl.M_swap_data(_x.M_impl); }
 
-    ~vector_base() _GLIBCXX_NOEXCEPT { _M_deallocate(_M_impl._M_start, _M_impl._M_end_of_storage - _M_impl._M_start); }
+    ~vector_base() noexcept { M_deallocate(M_impl.M_start, M_impl.M_end_of_storage - M_impl.M_start); }
 
 public:
     vector_impl M_impl;
 
-    pointer _M_allocate(size_t __n) {
-        typedef __gnu_cxx::__alloc_traits<_Tp_alloc_type> _Tr;
-        return __n != 0 ? _Tr::allocate(M_impl, __n) : pointer();
-    }
+    pointer M_allocate(size_t _n);
 
-    void _M_deallocate(pointer __p, size_t __n) {
-        typedef __gnu_cxx::__alloc_traits<_Tp_alloc_type> _Tr;
-        if (__p)
-            _Tr::deallocate(M_impl, __p, __n);
-    }
+    void M_deallocate(pointer _p, size_t _n);
 
 private:
-    void _M_create_storage(size_t __n) {
-        this->M_impl._M_start = this->_M_allocate(__n);
+    void M_create_storage(size_t _n) {
+        this->M_impl._M_start = this->M_allocate(_n);
         this->M_impl._M_finish = this->M_impl._M_start;
-        this->M_impl._M_end_of_storage = this->M_impl._M_start + __n;
+        this->M_impl._M_end_of_storage = this->M_impl._M_start + _n;
     }
+};
+
+template <typename T>
+class vector : vector_base<T> {
+    using _Base = vector_base<T>;
+
+public:
+    using self = vector;
+    using value_type = T;
+    using _Base::pointer;
+    using const_poinnter = const T *;
+    using reference = T &;
+    using const_reference = const T &;
+    using iterator = vector_iterator<self>;
+    using const_iterator = vector_const_iterator<self>;
+    using reverse_iterator = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+    using size_type = size_t;
+    using difference_type = ptrdiff_t;
+
+protected:
+    using _Base::M_impl;
+    using _Base::M_allocate;
+    using _Base::M_deallocate;
 };
 } // namespace my_stl
