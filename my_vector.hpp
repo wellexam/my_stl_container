@@ -1,19 +1,21 @@
 #include <iterator>
+#include <cstdlib>
 
 namespace my_stl {
+template <typename my_vec>
 class vector_iterator_base;
 
 template <typename my_vec>
-class vector_iterator : public vector_iterator_base;
+class vector_iterator;
 
 template <typename my_vec>
-class vector_const_iterator : public vec_iterator_base;
+class vector_const_iterator;
 
 template <typename T>
 class vector_base;
 
 template <typename T>
-class vector : protected vector_base<T>;
+class vector;
 
 template <typename T>
 class vector_base {
@@ -21,11 +23,12 @@ public:
     using pointer = T *;
 
     class vector_impl {
-        pointer M_start;
-        pointer M_finish;
-        pointer M_end_of_storage;
+    public:
+        pointer M_start = nullptr;
+        pointer M_finish = nullptr;
+        pointer M_end_of_storage = nullptr;
 
-        vector_impl() : M_start(), M_finish(), M_end_of_storage() {}
+        vector_impl() = default;
 
         void M_swap_data(vector_impl &_x) {
             std::swap(M_start, _x.M_start);
@@ -35,9 +38,9 @@ public:
     };
 
 public:
-    vector_base() = default;
+    vector_base() : M_impl() {}
 
-    vector_base(size_t _n) : M_impl() { M_create_storage(_n); }
+    explicit vector_base(size_t _n) : M_impl() { M_create_storage(_n); }
 
     vector_base(vector_base &&_x) noexcept { this->M_impl.M_swap_data(_x.M_impl); }
 
@@ -59,13 +62,24 @@ private:
 };
 
 template <typename T>
+vector_base::pointer vector_base<T>::M_allocate(size_t _n) {
+    pointer ptr = std::malloc(sizeof(T) * _n);
+    return ptr;
+}
+
+template <typename T>
+void vector_base<T>::M_deallocate(vector_base::pointer _p, size_t _n) {
+    std::free(_p);
+}
+
+template <typename T>
 class vector : vector_base<T> {
-    using _Base = vector_base<T>;
+    using Base = vector_base<T>;
 
 public:
     using self = vector;
     using value_type = T;
-    using _Base::pointer;
+    using Base::pointer;
     using const_poinnter = const T *;
     using reference = T &;
     using const_reference = const T &;
@@ -77,20 +91,20 @@ public:
     using difference_type = ptrdiff_t;
 
 protected:
-    using _Base::M_impl;
-    using _Base::M_allocate;
-    using _Base::M_deallocate;
+    using Base::M_impl;
+    using Base::M_allocate;
+    using Base::M_deallocate;
 
 public:
     //构造函数
-    vector();                                //默认构造函数。构造拥有默认构造的分配器的空容器。
+    vector() : Base() {}                     //默认构造函数。构造拥有默认构造的分配器的空容器。
     vector(size_type count, const T &value); //构造拥有 count 个有值 value 的元素的容器。
     explicit vector(size_type count);        //构造拥有个 count 默认插入的 T 实例的容器。不进行复制。
-    template <typename InputIt>              //
-    vector(InputIt first, InputIt last);     //构造拥有范围 [first, last) 内容的容器。
-    vector(const vector &other);             //复制构造函数。构造拥有other内容的容器。
-    vector(vector &&other) noexcept;         //移动构造函数。用移动语义构造拥有other内容的容器。移动后，保证other为empty() 。
-    vector(std::initializer_list<T> init);   //构造拥有 initializer_list init 内容的容器。
+    template <typename InputIt>
+    vector(InputIt first, InputIt last);                               //构造拥有范围 [first, last) 内容的容器。
+    vector(const vector &other);                                       //复制构造函数。构造拥有other内容的容器。
+    vector(vector &&other) noexcept : vector_base(std::move(other)) {} //移动构造函数。用移动语义构造拥有other内容的容器。移动后，保证other为empty() 。
+    vector(std::initializer_list<T> init);                             //构造拥有 initializer_list init 内容的容器。
 
     //析构函数
     ~vector(); //销毁vector。调用元素的析构函数，然后解分配所用的存储。注意，若元素是指针，则不销毁所指向的对象。
@@ -173,6 +187,47 @@ public:
     void resize(size_type count);                          //重设容器大小以容纳count个元素。若当前大小小于count，则后附额外的默认插入的元素。
     void resize(size_type count, const value_type &value); //重设容器大小以容纳count个元素。若当前大小小于count，则后附额外的value的副本。
 
-    void swap( vector& other );//将内容与 other 的交换。不在单独的元素上调用任何移动、复制或交换操作。所有迭代器和引用保持合法。尾后迭代器被非法化。
+    void swap(vector &other); //将内容与 other 的交换。不在单独的元素上调用任何移动、复制或交换操作。所有迭代器和引用保持合法。尾后迭代器被非法化。
 };
+
+template <typename T>
+vector<T>::vector(size_type count, const T &value) : vector_base(count * 2) {
+    while (count--) {
+        new (M_impl.M_finish) T(value);
+        ++M_impl.M_finish;
+    }
+}
+template <typename T>
+vector<T>::vector(vector::size_type count) : vector_base(count * 2) {
+    new (M_impl.M_finish) T[count];
+    M_impl.M_finish += count;
+}
+
+template <typename T>
+template <typename InputIt>
+vector<T>::vector(InputIt first, InputIt last) : vector_base((last - first) * 2) {
+    while (first != last) {
+        new (M_impl.M_finish) T(*first);
+        ++M_impl.M_finish;
+        ++first;
+    }
+}
+
+template <typename T>
+vector<T>::vector(const vector &other) : vector_base(other.size() * 2) {
+    auto iter = other.cbegin();
+    while (iter != other.cend()) {
+        new (M_impl.M_finish) T(*iter);
+        ++M_impl.M_finish;
+        ++iter;
+    }
+}
+
+template <typename T>
+vector<T>::vector(std::initializer_list<T> init) : vector_base(init.size() * 2) {
+    for (auto &i : init) {
+        new (M_impl.M_finish) T(std::move(i));
+        ++M_impl.M_finish;
+    }
+}
 } // namespace my_stl
