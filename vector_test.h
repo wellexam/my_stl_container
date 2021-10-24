@@ -23,11 +23,11 @@ void vector_test() {
     mystl::vector<int> v6(std::move(v2));
     mystl::vector<int> v7{1, 2, 3, 4, 5, 6, 7, 8, 9};
     mystl::vector<int> v8, v9, v10;
-    // mystl::vector<int> v10;
+    v1.assign(8, 8);
     v8 = v3;
     v9 = std::move(v3);
-    // v10 = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    // v10 = {11, 22, 33, 44};
+    v10 = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+
     FUN_AFTER(v1, v1.assign(8, 8));
     FUN_AFTER(v1, v1.assign(a, a + 5));
     FUN_AFTER(v1, v1.emplace(v1.begin(), 0));
@@ -94,7 +94,7 @@ void vector_test() {
 #if LARGER_TEST_DATA_ON
     CON_TEST_P1(vector<int>, push_back, rand(), LEN1 _LL, LEN2 _LL, LEN3 _LL);
 #else
-    CON_TEST_P1(vector<int>, push_back, rand(), LEN1 _L, LEN2 _L, LEN3 _L);
+     CON_TEST_P1(vector<int>, push_back, rand(), LEN1 _L, LEN2 _L, LEN3 _L);
 #endif
     std::cout << "\n";
     std::cout << "|---------------------|-------------|-------------|-------------|\n";

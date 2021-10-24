@@ -565,7 +565,18 @@ template <typename T>
 void vector<T>::assign(size_type count, const T &value) {
     this->clear();
     if (this->capacity() < count) {
-        this->resize(count * 2);
+        auto new_size = count * 2;
+        ///
+        auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+        auto mark_start = M_impl.M_start;
+        this->M_create_storage(new_size);
+        while (temp_start != temp_finish) {
+            new (M_impl.M_finish) T(std::move(*temp_start));
+            ++M_impl.M_finish;
+            ++temp_start;
+        }
+        std::free(mark_start);
+        ///
     }
     while (count--) {
         new (M_impl.M_finish) T(value);
@@ -579,7 +590,18 @@ void vector<T>::assign(InputIt first, InputIt last) {
     this->clear();
     auto count = last - first;
     if (this->capacity() < count) {
-        this->resize(count * 2);
+        auto new_size = count * 2;
+        ///
+        auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+        auto mark_start = M_impl.M_start;
+        this->M_create_storage(new_size);
+        while (temp_start != temp_finish) {
+            new (M_impl.M_finish) T(std::move(*temp_start));
+            ++M_impl.M_finish;
+            ++temp_start;
+        }
+        std::free(mark_start);
+        ///
     }
     while (first != last) {
         new (M_impl.M_finish) T(*first);
@@ -591,7 +613,18 @@ template <typename T>
 void vector<T>::assign(std::initializer_list<T> ilist) {
     this->clear();
     if (ilist.size() > this->capacity()) {
-        this->resize(ilist.size() * 2);
+        auto new_size = ilist.size() * 2;
+        ///
+        auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+        auto mark_start = M_impl.M_start;
+        this->M_create_storage(new_size);
+        while (temp_start != temp_finish) {
+            new (M_impl.M_finish) T(std::move(*temp_start));
+            ++M_impl.M_finish;
+            ++temp_start;
+        }
+        std::free(mark_start);
+        ///
     }
     for (auto &i : ilist) {
         new (M_impl.M_finish) T(std::move(i));
@@ -738,9 +771,17 @@ void vector<T>::shrink_to_fit() {
     if (size == capacity()) {
         return;
     }
-    M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, size));
-    M_impl.M_finish = M_impl.M_start + size;
-    M_impl.M_end_of_storage = M_impl.M_finish;
+    ///
+    auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+    auto mark_start = M_impl.M_start;
+    this->M_create_storage(size);
+    while (temp_start != temp_finish) {
+        new (M_impl.M_finish) T(std::move(*temp_start));
+        ++M_impl.M_finish;
+        ++temp_start;
+    }
+    std::free(mark_start);
+    ///
 }
 
 template <typename T>
@@ -753,10 +794,17 @@ void vector<T>::resize(vector::size_type count) {
             if (!this->capacity()) {
                 this->M_create_storage(count);
             } else {
-                M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, (size + count) * 2));
-                //std::cout << M_impl.M_start << std::endl;
-                M_impl.M_finish = M_impl.M_start + size;
-                M_impl.M_end_of_storage = M_impl.M_start + (size + count) * 2;
+                ///
+                auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+                auto mark_start = M_impl.M_start;
+                this->M_create_storage(count);
+                while (temp_start != temp_finish) {
+                    new (M_impl.M_finish) T(std::move(*temp_start));
+                    ++M_impl.M_finish;
+                    ++temp_start;
+                }
+                std::free(mark_start);
+                ///
             }
         }
         while (M_impl.M_finish != M_impl.M_end_of_storage) {
@@ -782,9 +830,17 @@ void vector<T>::resize(vector::size_type count, const value_type &value) {
             if (!this->capacity()) {
                 this->M_create_storage(count);
             } else {
-                M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, (size + count) * 2));
-                M_impl.M_finish = M_impl.M_start + size;
-                M_impl.M_end_of_storage = M_impl.M_start + (size + count) * 2;
+                ///
+                auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+                auto mark_start = M_impl.M_start;
+                this->M_create_storage(count);
+                while (temp_start != temp_finish) {
+                    new (M_impl.M_finish) T(std::move(*temp_start));
+                    ++M_impl.M_finish;
+                    ++temp_start;
+                }
+                std::free(mark_start);
+                ///
             }
         }
         while (M_impl.M_finish != M_impl.M_end_of_storage) {
@@ -815,10 +871,20 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, const T &valu
         return iterator(pos_ptr);
     } else {
         auto pos_dif = pos.current - M_impl.M_start;
-        auto new_size = this->size() * 2;
-        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, new_size));
-        M_impl.M_finish = M_impl.M_start + new_size / 2;
-        M_impl.M_end_of_storage = M_impl.M_start + new_size;
+        auto new_size = 2 * this->size();
+        if (!new_size)
+            new_size = 2;
+        ///
+        auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+        auto mark_start = M_impl.M_start;
+        this->M_create_storage(new_size);
+        while (temp_start != temp_finish) {
+            new (M_impl.M_finish) T(std::move(*temp_start));
+            ++M_impl.M_finish;
+            ++temp_start;
+        }
+        std::free(mark_start);
+        ///
         auto now_ptr = M_impl.M_finish;
         ++M_impl.M_finish;
         auto pos_ptr = M_impl.M_start + pos_dif;
@@ -847,10 +913,20 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, T &&value) {
         return iterator(pos_ptr);
     } else {
         auto pos_dif = pos.current - M_impl.M_start;
-        auto new_size = this->size() * 2;
-        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, new_size));
-        M_impl.M_finish = M_impl.M_start + new_size / 2;
-        M_impl.M_end_of_storage = M_impl.M_start + new_size;
+        auto new_size = 2 * this->size();
+        if (!new_size)
+            new_size = 2;
+        ///
+        auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+        auto mark_start = M_impl.M_start;
+        this->M_create_storage(new_size);
+        while (temp_start != temp_finish) {
+            new (M_impl.M_finish) T(std::move(*temp_start));
+            ++M_impl.M_finish;
+            ++temp_start;
+        }
+        std::free(mark_start);
+        ///
         auto now_ptr = M_impl.M_finish;
         ++M_impl.M_finish;
         auto pos_ptr = M_impl.M_start + pos_dif - 1;
@@ -887,10 +963,18 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, size_type cou
         return iterator(temp);
     } else {
         auto pos_dif = pos.current - M_impl.M_start;
-        auto size = this->size();
-        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, (size + count) * 2));
-        M_impl.M_finish = M_impl.M_start + size;
-        M_impl.M_end_of_storage = M_impl.M_start + (size + count) * 2;
+        auto new_size = (this->size() + count) * 2;
+        ///
+        auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+        auto mark_start = M_impl.M_start;
+        this->M_create_storage(new_size);
+        while (temp_start != temp_finish) {
+            new (M_impl.M_finish) T(std::move(*temp_start));
+            ++M_impl.M_finish;
+            ++temp_start;
+        }
+        std::free(mark_start);
+        ///
         M_impl.M_finish += count;
         auto now_ptr = M_impl.M_finish - 1;
         auto pos_ptr = M_impl.M_start + pos_dif - 1;
@@ -935,10 +1019,20 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, InputIt first
         return iterator(temp);
     } else {
         auto pos_dif = pos.current - M_impl.M_start;
-        auto size = this->size();
-        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, (size + count) * 2));
-        M_impl.M_finish = M_impl.M_start + size;
-        M_impl.M_end_of_storage = M_impl.M_start + (size + count) * 2;
+        auto new_size = 2 * this->size();
+        if (!new_size)
+            new_size = 2;
+        ///
+        auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+        auto mark_start = M_impl.M_start;
+        this->M_create_storage(new_size);
+        while (temp_start != temp_finish) {
+            new (M_impl.M_finish) T(std::move(*temp_start));
+            ++M_impl.M_finish;
+            ++temp_start;
+        }
+        std::free(mark_start);
+        ///
         M_impl.M_finish += count;
         auto now_ptr = M_impl.M_finish - 1;
         auto pos_ptr = M_impl.M_start + pos_dif - 1;
@@ -982,10 +1076,20 @@ typename vector<T>::iterator vector<T>::insert(vector::const_iterator pos, std::
         return iterator(temp);
     } else {
         auto pos_dif = pos.current - M_impl.M_start;
-        auto size = this->size();
-        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, (size + count) * 2));
-        M_impl.M_finish = M_impl.M_start + size;
-        M_impl.M_end_of_storage = M_impl.M_start + (size + count) * 2;
+        auto new_size = 2 * this->size();
+        if (!new_size)
+            new_size = 2;
+        ///
+        auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+        auto mark_start = M_impl.M_start;
+        this->M_create_storage(new_size);
+        while (temp_start != temp_finish) {
+            new (M_impl.M_finish) T(std::move(*temp_start));
+            ++M_impl.M_finish;
+            ++temp_start;
+        }
+        std::free(mark_start);
+        ///
         M_impl.M_finish += count;
         auto now_ptr = M_impl.M_finish - 1;
         auto pos_ptr = M_impl.M_start + pos_dif - 1;
@@ -1021,10 +1125,20 @@ typename vector<T>::iterator vector<T>::emplace(vector::const_iterator pos, Args
         return iterator(pos_ptr);
     } else {
         auto pos_dif = pos.current - M_impl.M_start;
-        auto new_size = this->size() * 2;
-        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, new_size));
-        M_impl.M_finish = M_impl.M_start + new_size / 2;
-        M_impl.M_end_of_storage = M_impl.M_start + new_size;
+        auto new_size = 2 * this->size();
+        if (!new_size)
+            new_size = 2;
+        ///
+        auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+        auto mark_start = M_impl.M_start;
+        this->M_create_storage(new_size);
+        while (temp_start != temp_finish) {
+            new (M_impl.M_finish) T(std::move(*temp_start));
+            ++M_impl.M_finish;
+            ++temp_start;
+        }
+        std::free(mark_start);
+        ///
         auto now_ptr = M_impl.M_finish;
         ++M_impl.M_finish;
         auto pos_ptr = M_impl.M_start + pos_dif - 1;
@@ -1088,10 +1202,20 @@ void vector<T>::push_back(const T &value) {
         new (M_impl.M_finish) T(value);
         ++M_impl.M_finish;
     } else {
-        auto new_size = this->size() * 2;
-        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, new_size));
-        M_impl.M_finish = M_impl.M_start + new_size / 2;
-        M_impl.M_end_of_storage = M_impl.M_start + new_size;
+        auto new_size = 2 * this->size();
+        if (!new_size)
+            new_size = 2;
+        ///
+        auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+        auto mark_start = M_impl.M_start;
+        this->M_create_storage(new_size);
+        while (temp_start != temp_finish) {
+            new (M_impl.M_finish) T(std::move(*temp_start));
+            ++M_impl.M_finish;
+            ++temp_start;
+        }
+        std::free(mark_start);
+        ///
         new (M_impl.M_finish) T(value);
         ++M_impl.M_finish;
     }
@@ -1109,10 +1233,20 @@ void vector<T>::emplace_back(Args &&...args) {
         new (M_impl.M_finish) T(std::forward<Args>(args)...);
         ++M_impl.M_finish;
     } else {
-        auto new_size = this->size() * 2;
-        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, new_size));
-        M_impl.M_finish = M_impl.M_start + new_size / 2;
-        M_impl.M_end_of_storage = M_impl.M_start + new_size;
+        auto new_size = 2 * this->size();
+        if (!new_size)
+            new_size = 2;
+        ///
+        auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+        auto mark_start = M_impl.M_start;
+        this->M_create_storage(new_size);
+        while (temp_start != temp_finish) {
+            new (M_impl.M_finish) T(std::move(*temp_start));
+            ++M_impl.M_finish;
+            ++temp_start;
+        }
+        std::free(mark_start);
+        ///
         new (M_impl.M_finish) T(std::forward<Args>(args)...);
         ++M_impl.M_finish;
     }
@@ -1132,11 +1266,17 @@ void vector<T>::swap(vector &other) {
 template <typename T>
 void vector<T>::reserve(size_type new_cap) {
     if (new_cap > this->capacity()) {
-        auto size = this->size();
-        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, new_cap));
-        //std::cout << M_impl.M_start << std::endl;
-        M_impl.M_finish = M_impl.M_start + size;
-        M_impl.M_end_of_storage = M_impl.M_start + new_cap;
+        ///
+        auto temp_start = M_impl.M_start, temp_finish = M_impl.M_finish, temp_end = M_impl.M_end_of_storage;
+        auto mark_start = M_impl.M_start;
+        this->M_create_storage(new_cap);
+        while (temp_start != temp_finish) {
+            new (M_impl.M_finish) T(std::move(*temp_start));
+            ++M_impl.M_finish;
+            ++temp_start;
+        }
+        std::free(mark_start);
+        ///
     }
 }
 

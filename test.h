@@ -703,12 +703,12 @@ void test_len(size_t len1, size_t len2, size_t len3, size_t wide)
 
 // 是否开启性能测试
 #ifndef PERFORMANCE_TEST_ON
-#define PERFORMANCE_TEST_ON 0
+#define PERFORMANCE_TEST_ON 1
 #endif // !PERFORMANCE_TEST_ON
 
 // 是否开启大数据量测试
 #ifndef LARGER_TEST_DATA_ON
-#define LARGER_TEST_DATA_ON 0
+#define LARGER_TEST_DATA_ON 1
 #endif // !LARGER_TEST_DATA_ON
 
 }    // namespace test
