@@ -4,7 +4,10 @@
 #include <type_traits>
 #include <algorithm>
 
-namespace my_stl {
+namespace mystl {
+template <typename InIter>
+using RequireInputIter = typename std::enable_if<std::is_convertible<typename std::iterator_traits<InIter>::iterator_category, std::input_iterator_tag>::value>::type;
+
 template <typename T>
 class vector_iterator_base;
 
@@ -111,6 +114,8 @@ public:
     explicit vector_iterator(pointer &&ptr) : base(std::move(ptr)) {}
     vector_iterator(const self &other) : base(other) {}
     vector_iterator(self &&other) noexcept : base(std::move(other)) {}
+    vector_iterator(const vector_const_iterator<T> &other) : base(other) {}
+    vector_iterator(vector_const_iterator<T> &&other) : base(std::move(other)) {}
 
     vector_iterator &operator=(const self &other) {
         base::operator=(other);
@@ -156,18 +161,29 @@ public:
 
     reference &operator[](difference_type n) const noexcept { return current[n]; }
 
-    self operator+(difference_type n) noexcept { return self(current + n); }
+    self operator+(difference_type n) const noexcept { return self(current + n); }
 
     self &operator+=(difference_type n) noexcept {
         current += n;
         return *this;
     }
 
-    self operator-(difference_type n) noexcept { return self(current - n); }
+    //减号运算符重载实现，整数版本。
+    template <typename tp>
+    self sub_impl(tp n, std::true_type) const noexcept {
+        return self(current - n);
+    }
 
+    //减号运算符重载实现，迭代器版本。
     template <typename Iter>
-    difference_type operator-(const Iter &&other) noexcept {
+    difference_type sub_impl(Iter &&other, std::false_type) const noexcept {
         return this->current - other.current;
+    }
+
+    //减号运算符重载分发。
+    template <typename tp>
+    decltype(auto) operator-(tp &&n) const noexcept {
+        return sub_impl(std::forward<tp>(n), std::is_integral<std::remove_reference_t<tp>>());
     }
 
     self &operator-=(difference_type n) noexcept {
@@ -188,6 +204,8 @@ public:
     using base = vector_iterator_base<T>;
     using difference_type = std::ptrdiff_t;
     using iterator_category = std::random_access_iterator_tag;
+
+    friend vector<T>;
 
     //派生类构造函数
     vector_const_iterator() : base() {}
@@ -243,7 +261,7 @@ public:
 
     reference &operator[](difference_type n) const noexcept { return current[n]; }
 
-    self operator+(difference_type n) noexcept { return self(current + n); }
+    self operator+(difference_type n) const noexcept { return self(current + n); }
 
     self &operator+=(difference_type n) noexcept {
         current += n;
@@ -300,7 +318,7 @@ public:
 
     pointer M_allocate(size_t _n);
 
-    void M_deallocate(pointer _p, size_t _n);
+    void M_deallocate(pointer _p);
 
     //基类构造函数
     vector_base() : M_impl() {}
@@ -309,9 +327,9 @@ public:
 
     vector_base(vector_base &&_x) noexcept { this->M_impl.M_swap_data(_x.M_impl); }
 
-    virtual ~vector_base() noexcept { M_deallocate(M_impl.M_start, M_impl.M_end_of_storage - M_impl.M_start); }
+    virtual ~vector_base() noexcept { M_deallocate(M_impl.M_start); }
 
-private:
+protected:
     void M_create_storage(size_t _n) {
         this->M_impl.M_start = this->M_allocate(_n);
         this->M_impl.M_finish = this->M_impl.M_start;
@@ -326,7 +344,7 @@ typename vector_base<T>::pointer vector_base<T>::M_allocate(size_t _n) {
 }
 
 template <typename T>
-void vector_base<T>::M_deallocate(vector_base::pointer _p, size_t _n) {
+void vector_base<T>::M_deallocate(vector_base::pointer _p) {
     std::free(_p);
 }
 
@@ -353,15 +371,12 @@ protected:
     using Base::M_allocate;
     using Base::M_deallocate;
 
-    template <typename _InIter>
-    using RequireInputIter = typename std::enable_if<std::is_convertible<typename std::iterator_traits<_InIter>::iterator_category, std::input_iterator_tag>::value>::type;
-
 public:
     //构造函数
     vector() : Base() {}                     //默认构造函数。构造拥有默认构造的分配器的空容器。
     vector(size_type count, const T &value); //构造拥有 count 个有值 value 的元素的容器。
     explicit vector(size_type count);        //构造拥有个 count 默认插入的 T 实例的容器。不进行复制。
-    template <typename InputIt>
+    template <typename InputIt, typename = RequireInputIter<InputIt>>
     vector(InputIt first, InputIt last);                        //构造拥有范围 [first, last) 内容的容器。
     vector(const vector &other);                                //复制构造函数。构造拥有other内容的容器。
     vector(vector &&other) noexcept : Base(std::move(other)) {} //移动构造函数。用移动语义构造拥有other内容的容器。移动后，保证other为empty() 。
@@ -376,10 +391,10 @@ public:
     vector &operator=(std::initializer_list<T> ilist); //以 initializer_list ilist 所标识者替换内容。
 
     //赋值函数
-    void assign(size_type count, const T &value); //以 count 份 value 的副本替换内容。
-    template <typename InputIt>                   //
-    void assign(InputIt first, InputIt last);     //以范围 [first, last) 中元素的副本替换内容。若任一参数是指向 *this 中的迭代器则行为未定义。
-    void assign(std::initializer_list<T> ilist);  //以来自 initializer_list ilist 的元素替换内容。
+    void assign(size_type count, const T &value);                     //以 count 份 value 的副本替换内容。
+    template <typename InputIt, typename = RequireInputIter<InputIt>> //
+    void assign(InputIt first, InputIt last);                         //以范围 [first, last) 中元素的副本替换内容。若任一参数是指向 *this 中的迭代器则行为未定义。
+    void assign(std::initializer_list<T> ilist);                      //以来自 initializer_list ilist 的元素替换内容。
 
     //元素访问
     reference at(size_type pos);             //返回位于指定位置 pos 的元素的引用，有边界检查。若 pos 不在容器范围内，则抛出 std::out_of_range 类型的异常。
@@ -418,6 +433,7 @@ public:
     bool empty() const noexcept;         //检查容器是否无元素，即是否 begin() == end() 。
     size_type size() const noexcept;     //返回容器中的元素数，即 std::distance(begin(), end()) 。
     size_type max_size() const noexcept; //返回根据系统或库实现限制的容器可保有的元素最大数量，即对于最大容器的 std::distance(begin(), end()) 。
+    void reserve(size_type new_cap);     //增加 vector 的容量到大于或等于 new_cap 的值。
     size_type capacity() const noexcept; //返回容器当前已为之分配空间的元素数。
     void shrink_to_fit();                //请求移除未使用的容量。
 
@@ -466,12 +482,14 @@ vector<T>::vector(size_type count, const T &value) : Base(count * 2) {
 }
 template <typename T>
 vector<T>::vector(vector::size_type count) : Base(count * 2) {
-    new (M_impl.M_finish) T[count];
-    M_impl.M_finish += count;
+    while (count--) {
+        new (M_impl.M_finish) T;
+        ++M_impl.M_finish;
+    }
 }
 
 template <typename T>
-template <typename InputIt>
+template <typename InputIt, typename>
 vector<T>::vector(InputIt first, InputIt last) : Base((last - first) * 2) {
     while (first != last) {
         new (M_impl.M_finish) T(*first);
@@ -509,7 +527,7 @@ vector<T> &vector<T>::operator=(const vector &other) {
     }
     this->clear();
     if (this->capacity() < other.capacity()) {
-        this->resize(other.capacity() * 2);
+        this->reserve(other.capacity() * 2);
     }
     auto iter = other.cbegin();
     while (iter != other.cend()) {
@@ -533,8 +551,8 @@ vector<T> &vector<T>::operator=(vector &&other) noexcept {
 template <typename T>
 vector<T> &vector<T>::operator=(std::initializer_list<T> ilist) {
     this->clear();
-    if (ilist.size() > this->capacity()) {
-        this->resize(ilist.size() * 2);
+    if (this->capacity() < ilist.size()) {
+        this->reserve(ilist.size() * 2);
     }
     for (auto &i : ilist) {
         new (M_impl.M_finish) T(std::move(i));
@@ -556,7 +574,7 @@ void vector<T>::assign(size_type count, const T &value) {
 }
 
 template <typename T>
-template <typename InputIt>
+template <typename InputIt, typename>
 void vector<T>::assign(InputIt first, InputIt last) {
     this->clear();
     auto count = last - first;
@@ -625,12 +643,12 @@ typename vector<T>::const_reference vector<T>::back() const {
 
 template <typename T>
 T *vector<T>::data() noexcept {
-    return this->_M_impl._M_start;
+    return this->M_impl.M_start;
 }
 
 template <typename T>
 const T *vector<T>::data() const noexcept {
-    return this->_M_impl._M_start;
+    return this->M_impl.M_start;
 }
 
 template <typename T>
@@ -728,30 +746,57 @@ void vector<T>::shrink_to_fit() {
 template <typename T>
 void vector<T>::resize(vector::size_type count) {
     auto size = this->size();
-    if (size == capacity()) {
+    if (count == size) {
         return;
-    }
-    M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, count));
-    M_impl.M_finish = M_impl.M_start + size;
-    M_impl.M_end_of_storage = M_impl.M_start + count;
-    while (M_impl.M_finish != M_impl.M_end_of_storage) {
-        new (M_impl.M_finish) T;
-        ++M_impl.M_finish;
+    } else if (count > size) {
+        if (count > this->capacity()) {
+            if (!this->capacity()) {
+                this->M_create_storage(count);
+            } else {
+                M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, (size + count) * 2));
+                //std::cout << M_impl.M_start << std::endl;
+                M_impl.M_finish = M_impl.M_start + size;
+                M_impl.M_end_of_storage = M_impl.M_start + (size + count) * 2;
+            }
+        }
+        while (M_impl.M_finish != M_impl.M_end_of_storage) {
+            new (M_impl.M_finish) T;
+            ++M_impl.M_finish;
+        }
+    } else {
+        size -= count;
+        while (size--) {
+            --M_impl.M_finish;
+            M_impl.M_finish->~T();
+        }
     }
 }
 
 template <typename T>
 void vector<T>::resize(vector::size_type count, const value_type &value) {
     auto size = this->size();
-    if (size == capacity()) {
+    if (count == size) {
         return;
-    }
-    M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, count));
-    M_impl.M_finish = M_impl.M_start + size;
-    M_impl.M_end_of_storage = M_impl.M_start + count;
-    while (M_impl.M_finish != M_impl.M_end_of_storage) {
-        new (M_impl.M_finish) T(value);
-        ++M_impl.M_finish;
+    } else if (count > size) {
+        if (count > this->capacity()) {
+            if (!this->capacity()) {
+                this->M_create_storage(count);
+            } else {
+                M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, (size + count) * 2));
+                M_impl.M_finish = M_impl.M_start + size;
+                M_impl.M_end_of_storage = M_impl.M_start + (size + count) * 2;
+            }
+        }
+        while (M_impl.M_finish != M_impl.M_end_of_storage) {
+            new (M_impl.M_finish) T(value);
+            ++M_impl.M_finish;
+        }
+    } else {
+        size -= count;
+        while (size--) {
+            --M_impl.M_finish;
+            M_impl.M_finish->~T();
+        }
     }
 }
 
@@ -815,7 +860,7 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, T &&value) {
         }
         ++pos_ptr;
         new (pos_ptr) T(std::move(value));
-        return iterator(pos_ptr.m);
+        return iterator(pos_ptr);
     }
 }
 
@@ -990,7 +1035,7 @@ typename vector<T>::iterator vector<T>::emplace(vector::const_iterator pos, Args
         }
         ++pos_ptr;
         new (pos_ptr) T(std::forward<Args>(args)...);
-        return iterator(pos_ptr.m);
+        return iterator(pos_ptr);
     }
 }
 
@@ -1085,6 +1130,17 @@ void vector<T>::swap(vector &other) {
 }
 
 template <typename T>
+void vector<T>::reserve(size_type new_cap) {
+    if (new_cap > this->capacity()) {
+        auto size = this->size();
+        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, new_cap));
+        //std::cout << M_impl.M_start << std::endl;
+        M_impl.M_finish = M_impl.M_start + size;
+        M_impl.M_end_of_storage = M_impl.M_start + new_cap;
+    }
+}
+
+template <typename T>
 bool operator==(const vector<T> &lhs, const vector<T> &rhs) {
     return (lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin()));
 }
@@ -1118,4 +1174,9 @@ template <typename T>
 void swap(vector<T> &lhs, vector<T> &rhs) {
     lhs.swap(rhs);
 }
-} // namespace my_stl
+
+template <typename Iter, typename num_type, typename = RequireInputIter<Iter>>
+Iter operator+(num_type &n, Iter iter) {
+    return Iter(iter + n);
+}
+} // namespace mystl

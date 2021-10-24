@@ -2,7 +2,7 @@
 #include <iostream>
 #include <iterator>
 
-namespace my_stl {
+namespace mystl {
 
 template <typename T, typename Ref, typename Ptr>
 class list_iterator;
@@ -1090,4 +1090,4 @@ void swap(list<T> &lhs, list<T> &rhs) {
     lhs.swap(rhs);
 }
 
-} // namespace my_stl
+} // namespace mystl
