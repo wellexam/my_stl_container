@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <type_traits>
+#include <algorithm>
 
 namespace my_stl {
 template <typename T>
@@ -18,6 +19,22 @@ class vector_base;
 
 template <typename T>
 class vector;
+
+template <typename T>
+inline bool operator==(const vector<T> &lhs, const vector<T> &rhs);
+template <typename T>
+inline bool operator!=(const vector<T> &lhs, const vector<T> &rhs);
+template <typename T>
+inline bool operator<(const vector<T> &lhs, const vector<T> &rhs);
+template <typename T>
+inline bool operator<=(const vector<T> &lhs, const vector<T> &rhs);
+template <typename T>
+inline bool operator>(const vector<T> &lhs, const vector<T> &rhs);
+template <typename T>
+inline bool operator>=(const vector<T> &lhs, const vector<T> &rhs);
+
+template <typename T>
+void swap(vector<T> &lhs, vector<T> &rhs);
 
 template <typename T>
 class vector_iterator_base {
@@ -268,7 +285,7 @@ public:
         pointer M_finish = nullptr;
         pointer M_end_of_storage = nullptr;
 
-        vector_impl() = default;
+        // vector_impl() = default;
 
         void M_swap_data(vector_impl &_x) {
             std::swap(M_start, _x.M_start);
@@ -278,6 +295,14 @@ public:
     };
 
 public:
+    //维护动态内存的内嵌类成员
+    vector_impl M_impl;
+
+    pointer M_allocate(size_t _n);
+
+    void M_deallocate(pointer _p, size_t _n);
+
+    //基类构造函数
     vector_base() : M_impl() {}
 
     explicit vector_base(size_t _n) : M_impl() { M_create_storage(_n); }
@@ -285,13 +310,6 @@ public:
     vector_base(vector_base &&_x) noexcept { this->M_impl.M_swap_data(_x.M_impl); }
 
     virtual ~vector_base() noexcept { M_deallocate(M_impl.M_start, M_impl.M_end_of_storage - M_impl.M_start); }
-
-public:
-    vector_impl M_impl;
-
-    pointer M_allocate(size_t _n);
-
-    void M_deallocate(pointer _p, size_t _n);
 
 private:
     void M_create_storage(size_t _n) {
@@ -334,6 +352,9 @@ protected:
     using Base::M_impl;
     using Base::M_allocate;
     using Base::M_deallocate;
+
+    template <typename _InIter>
+    using RequireInputIter = typename std::enable_if<std::is_convertible<typename std::iterator_traits<_InIter>::iterator_category, std::input_iterator_tag>::value>::type;
 
 public:
     //构造函数
@@ -406,11 +427,11 @@ public:
     iterator insert(const_iterator pos, const T &value);                  //在pos前插入value。
     iterator insert(const_iterator pos, T &&value);                       //在pos前插入value。
     iterator insert(const_iterator pos, size_type count, const T &value); //在pos前插入value的count个副本。
-    template <typename InputIt>                                           //
+    template <typename InputIt, typename = RequireInputIter<InputIt>>     //
     iterator insert(const_iterator pos, InputIt first, InputIt last);     //在pos前插入来自范围[first, last)的元素。
     iterator insert(const_iterator pos, std::initializer_list<T> ilist);  //在pos前插入来自ilist的元素。
 
-    template <class... Args>
+    template <typename... Args>
     iterator emplace(const_iterator pos, Args &&...args); //直接于pos前插入元素到容器中。
 
     iterator erase(const_iterator pos);                        //移除位于pos的元素。
@@ -419,7 +440,7 @@ public:
     void push_back(const T &value); //后附给定元素value到容器尾。
     void push_back(T &&value);      //移动value进新元素。
 
-    template <class... Args>
+    template <typename... Args>
     void emplace_back(Args &&...args); //添加新元素到容器尾。
 
     void pop_back(); //移除容器的末元素。
@@ -740,8 +761,9 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, const T &valu
         auto pos_ptr = pos.current - 1;
         auto now_ptr = M_impl.M_finish;
         ++M_impl.M_finish;
+        new (now_ptr) T;
         while (now_ptr != pos_ptr) {
-            new (now_ptr) T(std::move(*(now_ptr - 1)));
+            *now_ptr = std::move(*(now_ptr - 1));
             --now_ptr;
         }
         new (pos_ptr) T(value);
@@ -755,8 +777,9 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, const T &valu
         auto now_ptr = M_impl.M_finish;
         ++M_impl.M_finish;
         auto pos_ptr = M_impl.M_start + pos_dif;
+        new (now_ptr) T;
         while (now_ptr != pos_ptr) {
-            new (now_ptr) T(std::move(*(now_ptr - 1)));
+            *now_ptr = std::move(*(now_ptr - 1));
             --now_ptr;
         }
         new (pos_ptr) T(value);
@@ -795,6 +818,7 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, T &&value) {
         return iterator(pos_ptr.m);
     }
 }
+
 template <typename T>
 typename vector<T>::iterator vector<T>::insert(const_iterator pos, size_type count, const T &value) {
     if (count <= 0) {
@@ -804,8 +828,9 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, size_type cou
         auto pos_ptr = pos.current - 1;
         M_impl.M_finish += count;
         auto now_ptr = M_impl.M_finish - 1;
-        while (now_ptr - count != pos_ptr) {
-            new (now_ptr) T(std::move(*(now_ptr - count)));
+        new (now_ptr) T;
+        while (now_ptr != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - 1));
             --now_ptr;
         }
         ++pos_ptr;
@@ -824,8 +849,9 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, size_type cou
         M_impl.M_finish += count;
         auto now_ptr = M_impl.M_finish - 1;
         auto pos_ptr = M_impl.M_start + pos_dif - 1;
-        while (now_ptr - count != pos_ptr) {
-            new (now_ptr) T(std::move(*(now_ptr - count)));
+        new (now_ptr) T;
+        while (now_ptr != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - 1));
             --now_ptr;
         }
         ++pos_ptr;
@@ -838,32 +864,258 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, size_type cou
     }
 }
 
-// template <typename T>
-// typename vector<T>::iterator vector<T>::insert(vector::const_iterator pos, const T &value) {
-//     if (M_impl.M_finish != M_impl.M_end_of_storage) {
-//         new (M_impl.M_finish) T(value);
-//         ++M_impl.M_finish;
-//     } else {
-//         auto new_size = this->size() * 2;
-//         M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, new_size));
-//         M_impl.M_finish = M_impl.M_start + new_size / 2;
-//         M_impl.M_end_of_storage = M_impl.M_start + new_size;
-//         new (M_impl.M_finish) T(value);
-//         ++M_impl.M_finish;
-//     }
-// }
-// template <typename T>
-// typename vector<T>::iterator vector<T>::insert(vector::const_iterator pos, T &&value) {
-//     if (M_impl.M_finish != M_impl.M_end_of_storage) {
-//         new (M_impl.M_finish) T(std::move(value));
-//         ++M_impl.M_finish;
-//     } else {
-//         auto new_size = this->size() * 2;
-//         M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, new_size));
-//         M_impl.M_finish = M_impl.M_start + new_size / 2;
-//         M_impl.M_end_of_storage = M_impl.M_start + new_size;
-//         new (M_impl.M_finish) T(std::move(value));
-//         ++M_impl.M_finish;
-//     }
-// }
+template <typename T>
+template <typename InputIt, typename>
+typename vector<T>::iterator vector<T>::insert(const_iterator pos, InputIt first, InputIt last) {
+    auto count = std::distance(first, last);
+    if (count <= 0) {
+        return pos;
+    }
+    if (M_impl.M_end_of_storage - M_impl.M_finish >= count) {
+        auto pos_ptr = pos.current - 1;
+        M_impl.M_finish += count;
+        auto now_ptr = M_impl.M_finish - 1;
+        new (now_ptr) T;
+        while (now_ptr != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - 1));
+            --now_ptr;
+        }
+        ++pos_ptr;
+        auto temp = pos_ptr;
+        while (first != last) {
+            new (pos_ptr) T(*first);
+            ++pos_ptr;
+            ++first;
+        }
+        return iterator(temp);
+    } else {
+        auto pos_dif = pos.current - M_impl.M_start;
+        auto size = this->size();
+        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, (size + count) * 2));
+        M_impl.M_finish = M_impl.M_start + size;
+        M_impl.M_end_of_storage = M_impl.M_start + (size + count) * 2;
+        M_impl.M_finish += count;
+        auto now_ptr = M_impl.M_finish - 1;
+        auto pos_ptr = M_impl.M_start + pos_dif - 1;
+        new (now_ptr) T;
+        while (now_ptr != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - 1));
+            --now_ptr;
+        }
+        ++pos_ptr;
+        auto temp = pos_ptr;
+        while (first != last) {
+            new (pos_ptr) T(*first);
+            ++pos_ptr;
+            ++first;
+        }
+        return iterator(temp);
+    }
+}
+
+template <typename T>
+typename vector<T>::iterator vector<T>::insert(vector::const_iterator pos, std::initializer_list<T> ilist) {
+    auto count = ilist.size();
+    if (count == 0) {
+        return pos;
+    }
+    if (M_impl.M_end_of_storage - M_impl.M_finish >= count) {
+        auto pos_ptr = pos.current - 1;
+        M_impl.M_finish += count;
+        auto now_ptr = M_impl.M_finish - 1;
+        new (now_ptr) T;
+        while (now_ptr != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - 1));
+            --now_ptr;
+        }
+        ++pos_ptr;
+        auto temp = pos_ptr;
+        for (auto &i : ilist) {
+            new (pos_ptr) T(std::move(i));
+            ++pos_ptr;
+        }
+        return iterator(temp);
+    } else {
+        auto pos_dif = pos.current - M_impl.M_start;
+        auto size = this->size();
+        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, (size + count) * 2));
+        M_impl.M_finish = M_impl.M_start + size;
+        M_impl.M_end_of_storage = M_impl.M_start + (size + count) * 2;
+        M_impl.M_finish += count;
+        auto now_ptr = M_impl.M_finish - 1;
+        auto pos_ptr = M_impl.M_start + pos_dif - 1;
+        new (now_ptr) T;
+        while (now_ptr != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - 1));
+            --now_ptr;
+        }
+        ++pos_ptr;
+        auto temp = pos_ptr;
+        for (auto &i : ilist) {
+            new (pos_ptr) T(std::move(i));
+            ++pos_ptr;
+        }
+        return iterator(temp);
+    }
+}
+
+template <typename T>
+template <typename... Args>
+typename vector<T>::iterator vector<T>::emplace(vector::const_iterator pos, Args &&...args) {
+    if (M_impl.M_finish != M_impl.M_end_of_storage) {
+        auto pos_ptr = pos.current - 1;
+        auto now_ptr = M_impl.M_finish;
+        ++M_impl.M_finish;
+        new (now_ptr) T;
+        while (now_ptr != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - 1));
+            --now_ptr;
+        }
+        ++pos_ptr;
+        new (pos_ptr) T(std::forward<Args>(args)...);
+        return iterator(pos_ptr);
+    } else {
+        auto pos_dif = pos.current - M_impl.M_start;
+        auto new_size = this->size() * 2;
+        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, new_size));
+        M_impl.M_finish = M_impl.M_start + new_size / 2;
+        M_impl.M_end_of_storage = M_impl.M_start + new_size;
+        auto now_ptr = M_impl.M_finish;
+        ++M_impl.M_finish;
+        auto pos_ptr = M_impl.M_start + pos_dif - 1;
+        new (now_ptr) T;
+        while (now_ptr != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - 1));
+            --now_ptr;
+        }
+        ++pos_ptr;
+        new (pos_ptr) T(std::forward<Args>(args)...);
+        return iterator(pos_ptr.m);
+    }
+}
+
+template <typename T>
+typename vector<T>::iterator vector<T>::erase(vector::const_iterator pos) {
+    auto pos_ptr = pos.current;
+    pos_ptr->~T();
+    new (pos_ptr) T;
+    auto now_ptr = pos_ptr + 1;
+    while (now_ptr != M_impl.M_finish) {
+        *(now_ptr - 1) = std::move(*now_ptr);
+        ++now_ptr;
+    }
+    --M_impl.M_finish;
+    // M_impl.M_finish->~T();
+    return iterator(pos_ptr);
+}
+
+template <typename T>
+typename vector<T>::iterator vector<T>::erase(const_iterator first, const_iterator last) {
+    auto count = std::distance(first, last);
+    if (count == 0) {
+        return last;
+    }
+    auto first_ptr = first.current, last_ptr = last.current;
+    auto now_ptr = first_ptr;
+    while (now_ptr != last_ptr) {
+        now_ptr->~T();
+        if (now_ptr + count < M_impl.M_finish) {
+            new (now_ptr) T;
+        }
+        ++now_ptr;
+    }
+    now_ptr = first_ptr;
+    while (now_ptr != M_impl.M_finish) {
+        if (now_ptr + count < M_impl.M_finish) {
+            *now_ptr = std::move(*(now_ptr + count));
+        } else {
+            break;
+        }
+        ++now_ptr;
+    }
+    M_impl.M_finish -= count;
+    return iterator(first_ptr);
+}
+
+template <typename T>
+void vector<T>::push_back(const T &value) {
+    if (M_impl.M_finish != M_impl.M_end_of_storage) {
+        new (M_impl.M_finish) T(value);
+        ++M_impl.M_finish;
+    } else {
+        auto new_size = this->size() * 2;
+        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, new_size));
+        M_impl.M_finish = M_impl.M_start + new_size / 2;
+        M_impl.M_end_of_storage = M_impl.M_start + new_size;
+        new (M_impl.M_finish) T(value);
+        ++M_impl.M_finish;
+    }
+}
+
+template <typename T>
+void vector<T>::push_back(T &&value) {
+    emplace_back(std::move(value));
+}
+
+template <typename T>
+template <typename... Args>
+void vector<T>::emplace_back(Args &&...args) {
+    if (M_impl.M_finish != M_impl.M_end_of_storage) {
+        new (M_impl.M_finish) T(std::forward<Args>(args)...);
+        ++M_impl.M_finish;
+    } else {
+        auto new_size = this->size() * 2;
+        M_impl.M_start = static_cast<pointer>(realloc(M_impl.M_start, new_size));
+        M_impl.M_finish = M_impl.M_start + new_size / 2;
+        M_impl.M_end_of_storage = M_impl.M_start + new_size;
+        new (M_impl.M_finish) T(std::forward<Args>(args)...);
+        ++M_impl.M_finish;
+    }
+}
+
+template <typename T>
+void vector<T>::pop_back() {
+    M_impl.M_finish->~T();
+    --M_impl.M_finish;
+}
+
+template <typename T>
+void vector<T>::swap(vector &other) {
+    M_impl.M_swap_data(other.M_impl);
+}
+
+template <typename T>
+bool operator==(const vector<T> &lhs, const vector<T> &rhs) {
+    return (lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin()));
+}
+
+template <typename T>
+bool operator!=(const vector<T> &lhs, const vector<T> &rhs) {
+    return !(lhs == rhs);
+}
+
+template <typename T>
+bool operator<(const vector<T> &lhs, const vector<T> &rhs) {
+    return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
+}
+
+template <typename T>
+bool operator<=(const vector<T> &lhs, const vector<T> &rhs) {
+    return !(rhs < lhs);
+}
+
+template <typename T>
+bool operator>(const vector<T> &lhs, const vector<T> &rhs) {
+    return rhs < lhs;
+}
+
+template <typename T>
+bool operator>=(const vector<T> &lhs, const vector<T> &rhs) {
+    return !(lhs < rhs);
+}
+
+template <typename T>
+void swap(vector<T> &lhs, vector<T> &rhs) {
+    lhs.swap(rhs);
+}
 } // namespace my_stl
