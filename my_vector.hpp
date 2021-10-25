@@ -892,8 +892,8 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, size_type cou
         M_impl.M_finish += count;
         auto now_ptr = M_impl.M_finish - 1;
         new (now_ptr) T;
-        while (now_ptr != pos_ptr) {
-            *now_ptr = std::move(*(now_ptr - 1));
+        while (now_ptr - count != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - count));
             --now_ptr;
         }
         ++pos_ptr;
@@ -911,8 +911,8 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, size_type cou
         auto now_ptr = M_impl.M_finish - 1;
         auto pos_ptr = M_impl.M_start + pos_dif - 1;
         new (now_ptr) T;
-        while (now_ptr != pos_ptr) {
-            *now_ptr = std::move(*(now_ptr - 1));
+        while (now_ptr - count != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - count));
             --now_ptr;
         }
         ++pos_ptr;
@@ -937,8 +937,8 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, InputIt first
         M_impl.M_finish += count;
         auto now_ptr = M_impl.M_finish - 1;
         new (now_ptr) T;
-        while (now_ptr != pos_ptr) {
-            *now_ptr = std::move(*(now_ptr - 1));
+        while (now_ptr - count != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - count));
             --now_ptr;
         }
         ++pos_ptr;
@@ -959,8 +959,8 @@ typename vector<T>::iterator vector<T>::insert(const_iterator pos, InputIt first
         auto now_ptr = M_impl.M_finish - 1;
         auto pos_ptr = M_impl.M_start + pos_dif - 1;
         new (now_ptr) T;
-        while (now_ptr != pos_ptr) {
-            *now_ptr = std::move(*(now_ptr - 1));
+        while (now_ptr - count != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - count));
             --now_ptr;
         }
         ++pos_ptr;
@@ -985,8 +985,8 @@ typename vector<T>::iterator vector<T>::insert(vector::const_iterator pos, std::
         M_impl.M_finish += count;
         auto now_ptr = M_impl.M_finish - 1;
         new (now_ptr) T;
-        while (now_ptr != pos_ptr) {
-            *now_ptr = std::move(*(now_ptr - 1));
+        while (now_ptr - count != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - count));
             --now_ptr;
         }
         ++pos_ptr;
@@ -1006,8 +1006,8 @@ typename vector<T>::iterator vector<T>::insert(vector::const_iterator pos, std::
         auto now_ptr = M_impl.M_finish - 1;
         auto pos_ptr = M_impl.M_start + pos_dif - 1;
         new (now_ptr) T;
-        while (now_ptr != pos_ptr) {
-            *now_ptr = std::move(*(now_ptr - 1));
+        while (now_ptr - count != pos_ptr) {
+            *now_ptr = std::move(*(now_ptr - count));
             --now_ptr;
         }
         ++pos_ptr;
