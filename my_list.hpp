@@ -164,7 +164,7 @@ template <typename T, typename Ref, typename Ptr>
 list_iterator<T, Ref, Ptr>::list_iterator(list_iterator::const_iterator &&other) noexcept : current_node(std::move(other.current_node)) {}
 
 template <typename T>
-class list {
+class list final {
 public:
     using size_type = size_t;
     using value_type = T;
@@ -767,19 +767,7 @@ void list<T>::swap(list &other) {
 
 template <typename T>
 void list<T>::sort() {
-    auto current = begin(), last = --end();
-    while (last != current) {
-        while (current != last) {
-            auto temp = current;
-            ++temp;
-            if (*temp < *current) {
-                std::swap(*temp, *current);
-            }
-            ++current;
-        }
-        --last;
-        current = begin();
-    }
+
 }
 
 template <typename T>
