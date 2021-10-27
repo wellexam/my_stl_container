@@ -4,6 +4,8 @@
 #include <iterator>
 
 namespace mystl {
+template <typename InIter>
+using RequireInputIter = typename std::enable_if<std::is_convertible<typename std::iterator_traits<InIter>::iterator_category, std::input_iterator_tag>::value>::type;
 
 template <typename T, typename Ref, typename Ptr>
 class list_iterator;
@@ -232,7 +234,7 @@ public:
     iterator insert(const_iterator pos, const T &value);                  //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, T &&value);                       //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, size_type count, const T &value); //插入元素到容器中的指定位置。
-    template <typename InputIt>                                           //
+    template <typename InputIt, typename = RequireInputIter<InputIt>>                                           //
     iterator insert(const_iterator pos, InputIt first, InputIt last);     //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, std::initializer_list<T> ilist);  //插入元素到容器中的指定位置。
 
@@ -576,7 +578,7 @@ typename list<T>::iterator list<T>::insert(const_iterator pos, size_type count, 
 }
 
 template <typename T>
-template <typename InputIt>
+template <typename InputIt, typename>
 typename list<T>::iterator list<T>::insert(const_iterator pos, InputIt first, InputIt last) {
     auto prev = pos.current_node->prev;
     while (first != last) {
@@ -730,8 +732,8 @@ void list<T>::resize(size_type count) {
         erase(iter, cend());
         return;
     } else {
+        auto current = dummy_node;
         while (list_size < count) {
-            auto current = dummy_node;
             auto prev = current->prev;
             auto new_node = new node(current, prev);
             prev->next = new_node;
