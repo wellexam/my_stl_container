@@ -51,7 +51,7 @@ public:
     list_node(list_node &&other) noexcept : data(std::move(other.data)), next(other.next), prev(other.prev) {}
     list_node(list_node *_next, list_node *_prev) : next(_next), prev(_prev) {}
     list_node(const T &_data, list_node *_next, list_node *_prev) : data(_data), next(_next), prev(_prev) {}
-    //    list_node(T &&_data, list_node *_next, list_node *_prev) noexcept : data(std::move(_data)), next(_next), prev(_prev) {}
+    list_node(T &&_data, list_node *_next, list_node *_prev) noexcept : data(std::move(_data)), next(_next), prev(_prev) {}
 };
 
 template <typename T, typename Ref, typename Ptr>
