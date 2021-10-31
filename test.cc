@@ -5,6 +5,6 @@
 #include "list_test.h"
 
 int main() {
-    //mystl::test::vector_test::vector_test();
+    mystl::test::vector_test::vector_test();
     mystl::test::list_test::list_test();
 }

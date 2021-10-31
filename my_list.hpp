@@ -46,12 +46,12 @@ public:
 
     list_node() = default;
     explicit list_node(const T &_data) : data(_data) {}
-    explicit list_node(T &&_data) noexcept : data(std::move(_data)) {}
+    explicit list_node(T &&_data) noexcept : data(std::move_if_noexcept(_data)) {}
     list_node(const list_node &other) : data(other.data), next(other.next), prev(other.prev) {}
-    list_node(list_node &&other) noexcept : data(std::move(other.data)), next(other.next), prev(other.prev) {}
+    list_node(list_node &&other) noexcept : data(std::move_if_noexcept(other.data)), next(other.next), prev(other.prev) {}
     list_node(list_node *_next, list_node *_prev) : next(_next), prev(_prev) {}
     list_node(const T &_data, list_node *_next, list_node *_prev) : data(_data), next(_next), prev(_prev) {}
-    list_node(T &&_data, list_node *_next, list_node *_prev) noexcept : data(std::move(_data)), next(_next), prev(_prev) {}
+    list_node(T &&_data, list_node *_next, list_node *_prev) noexcept : data(std::move_if_noexcept(_data)), next(_next), prev(_prev) {}
 };
 
 template <typename T, typename Ref, typename Ptr>
@@ -366,7 +366,7 @@ list<T>::list(std::initializer_list<T> init) {
     list_size = 0;
     auto iter = cend();
     for (auto &i : init) {
-        insert(iter, std::move(i));
+        insert(iter, std::move_if_noexcept(i));
     }
 }
 
@@ -429,7 +429,7 @@ list<T> &list<T>::operator=(std::initializer_list<T> ilist) {
     clear();
     auto iter = cend();
     for (auto &i : ilist)
-        iter = insert(iter, std::move(i));
+        iter = insert(iter, std::move_if_noexcept(i));
     return *this;
 }
 
@@ -559,7 +559,7 @@ template <typename T>
 typename list<T>::iterator list<T>::insert(const_iterator pos, T &&value) {
     auto current = pos.current_node;
     auto prev = current->prev;
-    auto new_node = new node(std::move(value), current, prev);
+    auto new_node = new node(std::move_if_noexcept(value), current, prev);
     prev->next = new_node;
     current->prev = new_node;
     ++list_size;
@@ -592,7 +592,7 @@ template <typename T>
 typename list<T>::iterator list<T>::insert(list::const_iterator pos, std::initializer_list<T> ilist) {
     auto prev = pos.current_node->prev;
     for (auto &i : ilist) {
-        insert(pos, std::move(i));
+        insert(pos, std::move_if_noexcept(i));
     }
     return iterator(prev->next);
 }
@@ -664,7 +664,7 @@ void list<T>::push_back(const T &value) {
 
 template <typename T>
 void list<T>::push_back(T &&value) {
-    emplace_back(std::move(value));
+    emplace_back(std::move_if_noexcept(value));
 }
 
 template <typename T>
@@ -698,7 +698,7 @@ void list<T>::push_front(const T &value) {
 
 template <typename T>
 void list<T>::push_front(T &&value) {
-    emplace_front(std::move(value));
+    emplace_front(std::move_if_noexcept(value));
 }
 
 template <typename T>
