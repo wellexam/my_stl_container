@@ -184,6 +184,8 @@ private:
     size_type list_size = 0; //链表元素数量
 
     iterator insert(const_iterator pos, node &other);
+    template <typename Compare>
+    const_iterator merge_self(const_iterator first, const_iterator mid, const_iterator last, Compare comp);
 
 public:
     //构造函数
@@ -234,7 +236,7 @@ public:
     iterator insert(const_iterator pos, const T &value);                  //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, T &&value);                       //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, size_type count, const T &value); //插入元素到容器中的指定位置。
-    template <typename InputIt, typename = RequireInputIter<InputIt>>                                           //
+    template <typename InputIt, typename = RequireInputIter<InputIt>>     //
     iterator insert(const_iterator pos, InputIt first, InputIt last);     //插入元素到容器中的指定位置。
     iterator insert(const_iterator pos, std::initializer_list<T> ilist);  //插入元素到容器中的指定位置。
 
@@ -294,9 +296,11 @@ public:
     void unique(BinaryPredicate p);     //从容器移除所有相继的重复元素。只留下相等元素组中的第一个元素。
 
     //时间太赶了所以只写了冒泡
-    void sort();                //以升序排序元素。保持相等元素的顺序。
-    template <typename Compare> //
-    void sort(Compare comp);    //以升序排序元素。保持相等元素的顺序。
+    void sort();                                           //以升序排序元素。保持相等元素的顺序。
+    template <typename Compare>                            //
+    void sort(Compare comp);                               //以升序排序元素。保持相等元素的顺序。
+    template <typename Compare>                            //
+    node *sort(node *first, size_type size, Compare comp); //以升序排序元素。保持相等元素的顺序。
 };
 
 template <typename T>
@@ -649,6 +653,7 @@ typename list<T>::iterator list<T>::erase(const_iterator first, const_iterator l
         --list_size;
     }
     prev->next = last.current_node;
+    last.current_node->prev = prev;
     return last;
 }
 
@@ -732,14 +737,7 @@ void list<T>::resize(size_type count) {
         erase(iter, cend());
         return;
     } else {
-        auto current = dummy_node;
-        while (list_size < count) {
-            auto prev = current->prev;
-            auto new_node = new node(current, prev);
-            prev->next = new_node;
-            current->prev = new_node;
-            ++list_size;
-        }
+        insert(cend(), count - list_size, T());
         return;
     }
 }
@@ -757,7 +755,7 @@ void list<T>::resize(size_type count, const value_type &value) {
         erase(iter, cend());
         return;
     } else {
-        insert(cend(), count, value);
+        insert(cend(), count - list_size, value);
         return;
     }
 }
@@ -770,12 +768,13 @@ void list<T>::swap(list &other) {
 
 template <typename T>
 void list<T>::sort() {
-
+    sort([](const T &a, const T &b) { return a < b; });
 }
 
 template <typename T>
 template <typename Compare>
 void list<T>::sort(Compare comp) {
+    //    sort(this->dummy_node->next, this->list_size, comp);
     auto current = begin(), last = --end();
     while (last != current) {
         while (current != last) {
@@ -899,6 +898,10 @@ void list<T>::merge(list &other, Compare comp) {
 
 template <typename T>
 template <typename Compare>
+typename list<T>::const_iterator list<T>::merge_self(const_iterator first, const_iterator mid, const_iterator last, Compare comp) {}
+
+template <typename T>
+template <typename Compare>
 void list<T>::merge(list &&other, Compare comp) {
     merge(other, comp);
 }
@@ -1006,7 +1009,7 @@ void list<T>::unique() {
         ++next;
         if (next != cend()) {
             if (*next == *iter) {
-                iter = erase(iter);
+                erase(next);
             } else {
                 ++iter;
             }
@@ -1024,8 +1027,8 @@ void list<T>::unique(BinaryPredicate p) {
         auto next = iter;
         ++next;
         if (next != cend()) {
-            if (p(*next, *iter)) {
-                iter = erase(iter);
+            if (p(*iter, *next)) {
+                erase(next);
             } else {
                 ++iter;
             }
@@ -1033,6 +1036,21 @@ void list<T>::unique(BinaryPredicate p) {
             ++iter;
         }
     }
+}
+template <typename T>
+template <typename Compare>
+typename list<T>::node *list<T>::sort(node *first, size_type size, Compare comp) {
+    // order [_First, _First + _Size), return _First + _Size
+    switch (size) {
+    case 0: return first;
+    case 1: return first->next;
+    default: break;
+    }
+
+    auto Mid = sort(first, size / 2, comp);
+    const auto Last = sort(Mid, size - size / 2, comp);
+    merge_self(const_iterator(first), const_iterator(Mid), const_iterator(Last), comp);
+    return Last;
 }
 
 template <typename T>
