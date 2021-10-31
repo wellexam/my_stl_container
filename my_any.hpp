@@ -1,11 +1,9 @@
 #pragma once
-#include <algorithm>
 #include <cstdlib>
 #include <stdexcept>
 #include <type_traits>
 #include <typeinfo>
 #include <utility>
-#include <functional>
 #include <iostream>
 
 namespace mystl {
@@ -13,13 +11,13 @@ class any;
 
 template <typename T>
 void destroy_impl(void *ptr) {
-    delete static_cast<T *>(ptr);
+    delete static_cast<std::remove_cv_t<std::remove_reference_t<T>> *>(ptr);
 }
 
 template <typename T>
 void *construct_impl(void *ptr) {
-    auto casted_ptr = static_cast<const T *>(ptr);
-    return new T(std::forward<const T>(*casted_ptr));
+    auto casted_ptr = static_cast<const std::remove_cv_t<std::remove_reference_t<T>> *>(ptr);
+    return new std::remove_reference_t<T>(std::forward<const std::remove_reference_t<T>>(*casted_ptr));
 }
 
 void swap(any &lhs, any &rhs) noexcept;
@@ -86,8 +84,8 @@ public:
 
     any &operator=(const any &rhs);     // 以复制 rhs 的状态赋值，如同用 any(rhs).swap(*this) 。
     any &operator=(any &&rhs) noexcept; // 以移动 rhs 的状态赋值，如同用 any(std::move(rhs)).swap(*this) 。赋值后 rhs 留在合法但未指定的状态。
-    template <typename ValueType>       // 以 rhs 的类型和值赋值，如同用 any(std::forward<ValueType>(rhs)).swap(*this) 。
-    any &operator=(ValueType &&rhs);    // 此重载仅若 std::decay_t<ValueType> 与 any 不是同一类型且 std::is_copy_constructible_v<std::decay_t<ValueType>> 为 true才参与重载决议。
+    template <typename ValueType, typename = std::enable_if_t<!std::is_same<any, std::decay_t<ValueType>>::value>> // 以 rhs 的类型和值赋值，如同用 any(std::forward<ValueType>(rhs)).swap(*this) 。
+    any &operator=(ValueType &&rhs); // 此重载仅若 std::decay_t<ValueType> 与 any 不是同一类型且 std::is_copy_constructible_v<std::decay_t<ValueType>> 为 true才参与重载决议。
 
     ~any();
 
@@ -124,7 +122,7 @@ any::any(ValueType &&value) {
     this->info = const_cast<std::type_info *>(&typeid(ValueType));
     this->destroy_fun = &destroy_impl<ValueType>;
     this->construct_fun = &construct_impl<ValueType>;
-    this->ptr = new ValueType(std::forward<ValueType>(value));
+    this->ptr = new std::remove_reference_t<ValueType>(std::forward<ValueType>(value));
 }
 template <typename ValueType, typename... Args>
 any::any(std::in_place_type_t<ValueType>, Args &&...args) {
@@ -162,7 +160,7 @@ any &any::operator=(any &&rhs) noexcept {
     return *this;
 }
 
-template <typename ValueType>
+template <typename ValueType, typename>
 any &any::operator=(ValueType &&rhs) {
     any(std::forward<ValueType>(rhs)).swap(*this);
     return *this;
@@ -171,6 +169,7 @@ any &any::operator=(ValueType &&rhs) {
 void any::reset() noexcept {
     if (!(*(this->info) == typeid(void))) {
         this->destroy_fun(this->ptr);
+        this->ptr = nullptr;
         this->info = const_cast<std::type_info *>(&typeid(void));
     }
 }
