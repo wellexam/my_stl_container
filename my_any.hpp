@@ -9,6 +9,88 @@
 namespace mystl {
 class any;
 
+class any {
+    class var_base;
+    template <class T>
+    class var;
+
+public:
+    template <class T>
+    friend T any_cast(const any &operand);
+
+    template <class T>
+    friend T any_cast(any &operand);
+
+    template <class T>
+    friend T any_cast(any &&operand);
+
+    template <class T>
+    friend const T *any_cast(const any *operand) noexcept;
+
+    template <class T>
+    friend T *any_cast(any *operand) noexcept;
+
+    constexpr any() noexcept = default; // 构造空对象。
+    any(const any &other);     // 复制 other 的内容进新实例，从而任何内容的类型和值都等于构造函数调用前的 other 所拥有者，或者若 other 为空则内容为空。
+    any(any &&other) noexcept; // 移动 other 的内容进新实例，从而任何内容的类型和值都等于构造函数调用前的 other 所拥有者，或者若 other 为空则内容为空。
+    template <typename ValueType, typename = std::enable_if_t<!std::is_same<any, std::decay_t<ValueType>>::value>>
+    any(ValueType &&value); //构造对象，其初始内容为 std::decay_t<ValueType> 类型对象，从 std::forward<ValueType>(value) 直接初始化它。
+    template <typename ValueType, typename... Args>
+    explicit any(std::in_place_type_t<ValueType>, Args &&...args); //构造对象，其初始内容为 std::decay_t<ValueType> 类型对象，从 std::forward<Args>(args)... 直接非列表初始化它。
+    template <typename ValueType, typename U, typename... Args>
+    explicit any(std::in_place_type_t<ValueType>, std::initializer_list<U> il,
+                 Args &&...args); //构造对象，其初始内容为 std::decay_t<ValueType> 类型对象，从 il, std::forward<Args>(args)... 直接非列表初始化它。
+
+    any &operator=(const any &rhs);     // 以复制 rhs 的状态赋值，如同用 any(rhs).swap(*this) 。
+    any &operator=(any &&rhs) noexcept; // 以移动 rhs 的状态赋值，如同用 any(std::move(rhs)).swap(*this) 。赋值后 rhs 留在合法但未指定的状态。
+    template <typename ValueType, typename = std::enable_if_t<!std::is_same<any, std::decay_t<ValueType>>::value>> // 以 rhs 的类型和值赋值，如同用 any(std::forward<ValueType>(rhs)).swap(*this) 。
+    any &operator=(ValueType &&rhs); // 此重载仅若 std::decay_t<ValueType> 与 any 不是同一类型且 std::is_copy_constructible_v<std::decay_t<ValueType>> 为 true才参与重载决议。
+
+    ~any();
+
+    template <class ValueType, class... Args>
+    std::decay_t<ValueType> &emplace(Args &&...args);
+    template <class ValueType, class U, class... Args>
+    std::decay_t<ValueType> &emplace(std::initializer_list<U> il, Args &&...args);
+
+    void reset() noexcept;
+
+    void swap(any &other) noexcept;
+
+    [[nodiscard]] bool has_value() const noexcept;
+
+    [[nodiscard]] const std::type_info &type() const noexcept;
+
+protected:
+    var_base *ptr = nullptr;
+    std::type_info *info = const_cast<std::type_info *>(&typeid(void));
+
+private:
+    class var_base {
+    public:
+        var_base() = default;
+        virtual ~var_base() = default;
+    };
+
+    template <class T>
+    class var : private var_base {
+    public:
+        T data;
+
+        var(T &_data) : data(_data) {}
+        var(T &&_data) : data(std::move(_data)) {}
+
+        ~var() { delete data; }
+
+        var *copy_constructor() const { return new var<T>(this->data); }
+    };
+};
+} // namespace mystl
+
+/*
+namespace mystl {
+class any;
+
 template <typename T>
 void destroy_impl(void *ptr) {
     delete static_cast<std::remove_cv_t<std::remove_reference_t<T>> *>(ptr);
@@ -21,29 +103,6 @@ void *construct_impl(void *ptr) {
 }
 
 void swap(any &lhs, any &rhs) noexcept;
-
-/*
- template <class T>
- T any_cast(const any &operand);
-
- template <class T>
- T any_cast(any &operand);
-
- template <class T>
- T any_cast(any &&operand);
-
- template <class T>
- const T *any_cast(const any *operand) noexcept;
-
- template <class T>
- T *any_cast(any *operand) noexcept;
-
-template <class T, class... Args>
-any make_any(Args &&...args);
-
-template <class T, class U, class... Args>
-any make_any(std::initializer_list<U> il, Args &&...args);
-*/
 
 class any {
 protected:
@@ -251,3 +310,4 @@ any make_any(std::initializer_list<U> il, Args &&...args) {
     return any(std::in_place_type<T>, il, std::forward<Args>(args)...);
 }
 } // namespace mystl
+ */
