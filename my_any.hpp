@@ -70,21 +70,157 @@ private:
     public:
         var_base() = default;
         virtual ~var_base() = default;
+
+        virtual var_base *copy_constructor() const { return nullptr; }
     };
 
     template <class T>
-    class var : private var_base {
+    class var : public var_base {
     public:
         T data;
 
         var(T &_data) : data(_data) {}
         var(T &&_data) : data(std::move(_data)) {}
+        template <class... Args>
+        var(Args &&...args) : data(std::forward<Args>(args)...) {}
+        template <typename U, typename... Args>
+        var(std::initializer_list<U> il, Args &&...args) : data(il, std::forward<Args>(args)...) {}
 
-        ~var() { delete data; }
+        ~var() = default;
 
-        var *copy_constructor() const { return new var<T>(this->data); }
+        var *copy_constructor() const override { return new var<T>(this->data); }
     };
 };
+any::any(const any &other) {
+    this->info = other.info;
+    if (*other.info != typeid(void)) {
+        this->ptr = other.ptr->copy_constructor();
+    }
+}
+any::any(any &&other) noexcept {
+    std::swap(this->info, other.info);
+    std::swap(this->ptr, other.ptr);
+}
+template <typename ValueType, typename>
+any::any(ValueType &&value) {
+    this->info = const_cast<std::type_info *>(&typeid(ValueType));
+    this->ptr = new var<ValueType>(std::forward<ValueType>(value));
+}
+template <typename ValueType, typename... Args>
+any::any(std::in_place_type_t<ValueType>, Args &&...args) {
+    this->info = const_cast<std::type_info *>(&typeid(ValueType));
+    this->ptr = new var<ValueType>(std::forward<Args>(args)...);
+}
+template <typename ValueType, typename U, typename... Args>
+any::any(std::in_place_type_t<ValueType>, std::initializer_list<U> il, Args &&...args) {
+    this->info = const_cast<std::type_info *>(&typeid(ValueType));
+    this->ptr = new var<ValueType>(il, std::forward<Args>(args)...);
+}
+any &any::operator=(const any &rhs) {
+    if (this->ptr == rhs.ptr) {
+        return *this;
+    }
+    this->reset();
+    this->info = rhs.info;
+    this->ptr = rhs.ptr->copy_constructor();
+    return *this;
+}
+any &any::operator=(any &&rhs) noexcept {
+    if (this->ptr == rhs.ptr) {
+        return *this;
+    }
+    any(std::move(rhs)).swap(*this);
+    return *this;
+}
+template <typename ValueType, typename>
+any &any::operator=(ValueType &&rhs) {
+    this->reset();
+    this->info = const_cast<std::type_info *>(&typeid(ValueType));
+    this->ptr = new var<ValueType>(std::forward<ValueType>(rhs));
+    return *this;
+}
+any::~any() {
+    this->reset();
+}
+template <class ValueType, class... Args>
+std::decay_t<ValueType> &any::emplace(Args &&...args) {
+    this->reset();
+    this->info = const_cast<std::type_info *>(&typeid(ValueType));
+    this->ptr = new var<ValueType>(std::forward<Args>(args)...);
+    auto casted_ptr = static_cast<var<ValueType> *>(this->ptr);
+    return *casted_ptr->data;
+}
+template <class ValueType, class U, class... Args>
+std::decay_t<ValueType> &any::emplace(std::initializer_list<U> il, Args &&...args) {
+    this->reset();
+    this->info = const_cast<std::type_info *>(&typeid(ValueType));
+    this->ptr = new var<ValueType>(il, std::forward<Args>(args)...);
+    auto casted_ptr = static_cast<var<ValueType> *>(this->ptr);
+    return casted_ptr->data;
+}
+void any::reset() noexcept {
+    if (*this->info != typeid(void)) {
+        delete this->ptr;
+        this->ptr = nullptr;
+        this->info = const_cast<std::type_info *>(&typeid(void));
+    }
+}
+void any::swap(any &other) noexcept {
+    std::swap(this->info, other.info);
+    std::swap(this->ptr, other.ptr);
+}
+bool any::has_value() const noexcept {
+    return *this->info != typeid(void);
+}
+const std::type_info &any::type() const noexcept {
+    return *this->info;
+}
+void swap(any &lhs, any &rhs) noexcept {
+    lhs.swap(rhs);
+}
+template <class T>
+T any_cast(const any &operand) {
+    if (typeid(T) != operand.type()) {
+        throw std::bad_cast();
+    }
+    return static_cast<T>(*any_cast<std::remove_cv_t<std::remove_reference_t<T>>>(&operand));
+}
+template <class T>
+T any_cast(any &operand) {
+    if (typeid(T) != operand.type()) {
+        throw std::bad_cast();
+    }
+    return static_cast<T>(*any_cast<std::remove_cv_t<std::remove_reference_t<T>>>(&operand));
+}
+template <class T>
+T any_cast(any &&operand) {
+    if (typeid(T) != operand.type()) {
+        throw std::bad_cast();
+    }
+    return static_cast<T>(std::move(*any_cast<std::remove_cv_t<std::remove_reference_t<T>>>(&operand)));
+}
+template <class T>
+const T *any_cast(const any *operand) noexcept {
+    if (typeid(T) != operand->type() || !operand) {
+        return nullptr;
+    }
+    return &static_cast<const any::var<T> *>(operand->ptr)->data;
+}
+template <class T>
+T *any_cast(any *operand) noexcept {
+    if (typeid(T) != operand->type() || !operand) {
+        return nullptr;
+    }
+    return &static_cast<any::var<T> *>(operand->ptr)->data;
+}
+template <class T, class... Args>
+any make_any(Args &&...args) {
+    return any(std::in_place_type<T>, std::forward<Args>(args)...);
+}
+template <class T, class U, class... Args>
+any make_any(std::initializer_list<U> il, Args &&...args) {
+    return any(std::in_place_type<T>, il, std::forward<Args>(args)...);
+}
 } // namespace mystl
 
 /*
