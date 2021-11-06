@@ -32,7 +32,7 @@ public:
     template <class T>
     friend T *any_cast(any *operand) noexcept;
 
-    constexpr any() noexcept = default; // 构造空对象。
+    constexpr any() noexcept;  // 构造空对象。
     any(const any &other);     // 复制 other 的内容进新实例，从而任何内容的类型和值都等于构造函数调用前的 other 所拥有者，或者若 other 为空则内容为空。
     any(any &&other) noexcept; // 移动 other 的内容进新实例，从而任何内容的类型和值都等于构造函数调用前的 other 所拥有者，或者若 other 为空则内容为空。
     template <typename ValueType, typename = std::enable_if_t<!std::is_same<any, std::decay_t<ValueType>>::value>>
@@ -64,8 +64,10 @@ public:
     [[nodiscard]] const std::type_info &type() const noexcept;
 
 protected:
+    static var_base static_var_base;
+
     var_base *ptr = nullptr;
-    std::type_info *info = const_cast<std::type_info *>(&typeid(void));
+    //std::type_info *info = const_cast<std::type_info *>(&typeid(void));
     void *stack_mem[BufferSize] = {nullptr};
 
 private:
@@ -77,6 +79,7 @@ private:
         virtual var_base *copy_constructor() const { return nullptr; }
         virtual var_base *copy_constructor(var_base *stack_ptr) const { return nullptr; }
         virtual var_base *move_constructor(var_base *stack_ptr) const { return nullptr; }
+        virtual const std::type_info &typeInfo() const { return typeid(void); }
     };
 
     template <class T>
@@ -96,30 +99,40 @@ private:
         var *copy_constructor() const override { return new var<T>(this->data); }
         var *copy_constructor(var_base *stack_ptr) const override { return new (stack_ptr) var<T>(this->data); }
         var *move_constructor(var_base *stack_ptr) const override { return new (stack_ptr) var<T>(std::move(this->data)); }
+        [[nodiscard]] const std::type_info &typeInfo() const override { return typeid(T); }
     };
 };
+any::var_base any::static_var_base;
+constexpr any::any() noexcept {
+    this->ptr = &any::static_var_base;
+}
 any::any(const any &other) {
-    this->info = other.info;
-    if (*other.info != typeid(void)) {
+    //this->info = other.info;
+    if (other.type() != typeid(void)) {
         if (reinterpret_cast<size_t>(other.ptr) == reinterpret_cast<size_t>(other.stack_mem)) {
             this->ptr = other.ptr->copy_constructor(reinterpret_cast<var_base *>(this->stack_mem));
         } else {
             this->ptr = other.ptr->copy_constructor();
         }
+    } else {
+        //this->ptr = new (reinterpret_cast<var_base *>(this->stack_mem + 1)) var_base;
+        this->ptr = &any::static_var_base;
     }
 }
 any::any(any &&other) noexcept {
     if (reinterpret_cast<size_t>(other.ptr) == reinterpret_cast<size_t>(other.stack_mem)) {
-        this->info = other.info;
         this->ptr = other.ptr->move_constructor(reinterpret_cast<var_base *>(this->stack_mem));
     } else {
-        std::swap(this->info, other.info);
-        std::swap(this->ptr, other.ptr);
+        if (other.type() == typeid(void)) {
+            this->ptr = &any::static_var_base;
+        } else {
+            std::swap(this->ptr, other.ptr);
+        }
     }
 }
 template <typename ValueType, typename>
 any::any(ValueType &&value) {
-    this->info = const_cast<std::type_info *>(&typeid(ValueType));
+    //this->info = const_cast<std::type_info *>(&typeid(ValueType));
     if (sizeof(var<ValueType>) <= BufferSize * sizeof(void *)) {
         this->ptr = new (reinterpret_cast<var_base *>(stack_mem)) var<ValueType>(std::forward<ValueType>(value));
         // std::cout << "value type : " << this->info->name() << " on stack, size : " << sizeof(var<ValueType>) << std::endl;
@@ -130,7 +143,7 @@ any::any(ValueType &&value) {
 }
 template <typename ValueType, typename... Args>
 any::any(std::in_place_type_t<ValueType>, Args &&...args) {
-    this->info = const_cast<std::type_info *>(&typeid(ValueType));
+    //this->info = const_cast<std::type_info *>(&typeid(ValueType));
     if (sizeof(var<ValueType>) <= BufferSize * sizeof(void *)) {
         this->ptr = new (reinterpret_cast<ValueType *>(stack_mem)) var<ValueType>(std::forward<Args>(args)...);
     } else {
@@ -139,7 +152,7 @@ any::any(std::in_place_type_t<ValueType>, Args &&...args) {
 }
 template <typename ValueType, typename U, typename... Args>
 any::any(std::in_place_type_t<ValueType>, std::initializer_list<U> il, Args &&...args) {
-    this->info = const_cast<std::type_info *>(&typeid(ValueType));
+    //this->info = const_cast<std::type_info *>(&typeid(ValueType));
     if (sizeof(var<ValueType>) <= BufferSize * sizeof(void *)) {
         this->ptr = new (reinterpret_cast<ValueType *>(stack_mem)) var<ValueType>(il, std::forward<Args>(args)...);
     } else {
@@ -151,8 +164,8 @@ any &any::operator=(const any &rhs) {
         return *this;
     }
     this->reset();
-    this->info = rhs.info;
-    if (*rhs.info != typeid(void)) {
+    //this->info = rhs.info;
+    if (rhs.type() != typeid(void)) {
         if (reinterpret_cast<size_t>(rhs.ptr) == reinterpret_cast<size_t>(rhs.stack_mem)) {
             this->ptr = rhs.ptr->copy_constructor(reinterpret_cast<var_base *>(this->stack_mem));
         } else {
@@ -166,10 +179,10 @@ any &any::operator=(any &&rhs) noexcept {
         return *this;
     }
     if (reinterpret_cast<size_t>(rhs.ptr) == reinterpret_cast<size_t>(rhs.stack_mem)) {
-        this->info = rhs.info;
+        //this->info = rhs.info;
         this->ptr = rhs.ptr->move_constructor(reinterpret_cast<var_base *>(this->stack_mem));
     } else {
-        std::swap(this->info, rhs.info);
+        //std::swap(this->info, rhs.info);
         std::swap(this->ptr, rhs.ptr);
     }
     return *this;
@@ -177,7 +190,7 @@ any &any::operator=(any &&rhs) noexcept {
 template <typename ValueType, typename>
 any &any::operator=(ValueType &&rhs) {
     this->reset();
-    this->info = const_cast<std::type_info *>(&typeid(ValueType));
+    //this->info = const_cast<std::type_info *>(&typeid(ValueType));
     if (sizeof(var<ValueType>) <= BufferSize * sizeof(void *)) {
         this->ptr = new (reinterpret_cast<var_base *>(stack_mem)) var<ValueType>(std::forward<ValueType>(rhs));
     } else {
@@ -191,7 +204,7 @@ any::~any() {
 template <class ValueType, class... Args>
 std::decay_t<ValueType> &any::emplace(Args &&...args) {
     this->reset();
-    this->info = const_cast<std::type_info *>(&typeid(ValueType));
+    //this->info = const_cast<std::type_info *>(&typeid(ValueType));
     if (sizeof(var<ValueType>) <= BufferSize * sizeof(void *)) {
         this->ptr = new (reinterpret_cast<ValueType *>(stack_mem)) var<ValueType>(std::forward<Args>(args)...);
     } else {
@@ -203,7 +216,7 @@ std::decay_t<ValueType> &any::emplace(Args &&...args) {
 template <class ValueType, class U, class... Args>
 std::decay_t<ValueType> &any::emplace(std::initializer_list<U> il, Args &&...args) {
     this->reset();
-    this->info = const_cast<std::type_info *>(&typeid(ValueType));
+    //this->info = const_cast<std::type_info *>(&typeid(ValueType));
     if (sizeof(var<ValueType>) <= BufferSize * sizeof(void *)) {
         this->ptr = new (reinterpret_cast<ValueType *>(stack_mem)) var<ValueType>(il, std::forward<Args>(args)...);
     } else {
@@ -213,14 +226,14 @@ std::decay_t<ValueType> &any::emplace(std::initializer_list<U> il, Args &&...arg
     return *casted_ptr->data;
 }
 void any::reset() noexcept {
-    if (*this->info != typeid(void)) {
+    if (this->type() != typeid(void)) {
         if (reinterpret_cast<size_t>(this->ptr) == reinterpret_cast<size_t>(this->stack_mem)) {
             this->ptr->~var_base();
         } else {
             delete this->ptr;
         }
-        this->ptr = nullptr;
-        this->info = const_cast<std::type_info *>(&typeid(void));
+        this->ptr = &any::static_var_base;
+        //this->info = const_cast<std::type_info *>(&typeid(void));
     }
 }
 void any::swap(any &other) noexcept {
@@ -229,32 +242,32 @@ void any::swap(any &other) noexcept {
         if (reinterpret_cast<size_t>(this->ptr) == reinterpret_cast<size_t>(this->stack_mem)) {
             any temp(std::move(*this));
             this->reset();
-            this->info = other.info;
+            //this->info = other.info;
             this->ptr = other.ptr->move_constructor(reinterpret_cast<var_base *>(this->stack_mem));
             other = std::move(temp);
         } else {
             any temp(std::move(*this));
-            this->info = other.info;
+            //this->info = other.info;
             this->ptr = other.ptr->move_constructor(reinterpret_cast<var_base *>(this->stack_mem));
             other = std::move(temp);
         }
     } else {
         if (reinterpret_cast<size_t>(this->ptr) == reinterpret_cast<size_t>(this->stack_mem)) {
             any temp(std::move(other));
-            other.info = this->info;
+            //other.info = this->info;
             other.ptr = this->ptr->move_constructor(reinterpret_cast<var_base *>(other.stack_mem));
             this->operator=(std::move(temp));
         } else {
-            std::swap(this->info, other.info);
+            //std::swap(this->info, other.info);
             std::swap(this->ptr, other.ptr);
         }
     }
 }
 bool any::has_value() const noexcept {
-    return *this->info != typeid(void);
+    return this->type() != typeid(void);
 }
 const std::type_info &any::type() const noexcept {
-    return *this->info;
+    return this->ptr->typeInfo();
 }
 void swap(any &lhs, any &rhs) noexcept {
     lhs.swap(rhs);
