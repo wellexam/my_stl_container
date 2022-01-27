@@ -96,17 +96,17 @@ void list_test()
 #else
   CON_TEST_P2(list<int>, insert, end, rand(), LEN1 _M, LEN2 _M, LEN3 _M);
 #endif
-  std::cout << std::endl;
-  std::cout << "|---------------------|-------------|-------------|-------------|" << std::endl;
-  std::cout << "|         sort        |";
-#if LARGER_TEST_DATA_ON
-  //LIST_SORT_TEST(LEN1 _M, LEN2 _M, LEN3 _M);
-#else
-  LIST_SORT_TEST(LEN1 _S, LEN2 _S, LEN3 _S);
-#endif
-  std::cout << std::endl;
-  std::cout << "|---------------------|-------------|-------------|-------------|" << std::endl;
-  PASSED;
+//   std::cout << std::endl;
+//   std::cout << "|---------------------|-------------|-------------|-------------|" << std::endl;
+//   std::cout << "|         sort        |";
+// #if LARGER_TEST_DATA_ON
+//   //LIST_SORT_TEST(LEN1 _M, LEN2 _M, LEN3 _M);
+// #else
+//   LIST_SORT_TEST(LEN1 _S, LEN2 _S, LEN3 _S);
+// #endif
+//   std::cout << std::endl;
+//   std::cout << "|---------------------|-------------|-------------|-------------|" << std::endl;
+//   PASSED;
 #endif
   std::cout << "[------------------ End container test : list ------------------]" << std::endl;
 }
